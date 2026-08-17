@@ -1,0 +1,28 @@
+# Virtual Environments
+venv/
+backend/venv/
+ENV/
+env/
+
+# Node Dependencies
+node_modules/
+frontend/node_modules/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Build Outputs & Logs
+dist/
+build/
+*.log
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+# Database Files
+*.sqlite3
+*.db
