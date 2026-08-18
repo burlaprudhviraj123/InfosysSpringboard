@@ -296,10 +296,14 @@ def create_batch(
 
 @router.get("/batches", response_model=List[BatchResponse])
 def list_batches(
+    fabric_type: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return db.query(WasteBatch).all()
+    query = db.query(WasteBatch)
+    if fabric_type:
+        query = query.filter(WasteBatch.fabric_type.ilike(f"%{fabric_type}%"))
+    return query.order_by(WasteBatch.id.desc()).all()
 
 @router.get("/batches/{batch_id}", response_model=BatchResponse)
 def get_batch(

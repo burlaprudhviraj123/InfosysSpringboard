@@ -72,10 +72,114 @@ function PieChart({ data }) {
   );
 }
 
+const SUPPORTED_MATERIALS = [
+  {
+    id: 'cotton',
+    name: 'Cotton',
+    category: 'Natural Fiber',
+    origin: 'Plant Cellulose (Gossypium)',
+    description: 'Pure plant-cellulose staple fiber known for breathability, softness, and high circularity potential.',
+    recoveryPathway: 'Mechanical fiber shredding, garnetting, and rotor yarn re-spinning.',
+    upcyclingSuitability: 'High — Ideal for direct garment remanufacturing, patchwork, and premium wipe textiles.',
+    processingConsiderations: 'Requires removal of non-cellulosic trims, metallic hardware, and elastane threads before shredding.'
+  },
+  {
+    id: 'denim',
+    name: 'Denim',
+    category: 'Natural Fiber',
+    origin: 'Woven Twill Cotton (Indigo-dyed)',
+    description: 'Durable warp-faced twill cotton textile dyed with indigo with robust physical tensile strength.',
+    recoveryPathway: 'Mechanical defibering, thermal/acoustic building insulation, and circular denim-to-denim yarn spinning.',
+    upcyclingSuitability: 'Very High — Premier material for modular atelier upcycling, bags, and outerwear.',
+    processingConsiderations: 'Sort by indigo wash intensity; separate metal rivets, zipper tracks, and reinforced waistband stitching.'
+  },
+  {
+    id: 'wool',
+    name: 'Wool',
+    category: 'Natural Fiber',
+    origin: 'Animal Protein (Keratin Fleece)',
+    description: 'Natural animal fleece composed of keratin proteins, offering superior thermal insulation and elasticity.',
+    recoveryPathway: 'Mechanical garnetting into shoddy fiber, wool-blend carpet underlay, and organic composting.',
+    upcyclingSuitability: 'High — Excellent for remilled winter garments, felted acoustic paneling, and outerwear.',
+    processingConsiderations: 'Avoid high-temperature alkaline scouring to preserve native cuticle crimp and fiber elasticity.'
+  },
+  {
+    id: 'silk',
+    name: 'Silk',
+    category: 'Natural Fiber',
+    origin: 'Animal Protein (Fibroin Filament)',
+    description: 'Continuous natural protein filament secreted by silkworms, featuring luxurious drape and tensile strength.',
+    recoveryPathway: 'Gentle waste-silk carding, luxury patchwork reuse, and specialty bio-polymer extraction.',
+    upcyclingSuitability: 'High — Best suited for direct garment reuse, high-end accessories, and artisanal linings.',
+    processingConsiderations: 'Delicate filament structure requires low-shear mechanical handling and neutral pH cleaning agents.'
+  },
+  {
+    id: 'linen',
+    name: 'Linen',
+    category: 'Natural Fiber',
+    origin: 'Flax Bast Cellulose (Linum usitatissimum)',
+    description: 'High-strength bast fiber harvested from flax stalks, known for moisture-wicking and structural stiffness.',
+    recoveryPathway: 'Mechanical fiber reclaiming, specialty papermaking, and structural bio-composite reinforcement.',
+    upcyclingSuitability: 'High — Suitable for interior textiles, summer apparel, and natural fiber composites.',
+    processingConsiderations: 'Long staple length requires calibrated cut-lengths to avoid processing entanglement.'
+  },
+  {
+    id: 'polyester',
+    name: 'Polyester',
+    category: 'Synthetic Polymer',
+    origin: 'Synthetic Polymer (Polyethylene Terephthalate / PET)',
+    description: 'Most widely produced thermoplastic synthetic polymer, offering crease resistance and high tensile durability.',
+    recoveryPathway: 'Chemical glycolysis/methanolysis depolymerization into pure monomers, or mechanical melt-pelletizing.',
+    upcyclingSuitability: 'Moderate — Best channeled into industrial chemical recycling or secondary technical textiles.',
+    processingConsiderations: 'Requires thermal optical sorting to prevent melt contamination from PVC or elastomeric impurities.'
+  },
+  {
+    id: 'nylon',
+    name: 'Nylon',
+    category: 'Synthetic Polymer',
+    origin: 'Polyamide Polymer (PA6 / PA66)',
+    description: 'High-performance polyamide synthetic polymer celebrated for superior abrasion resistance and elasticity.',
+    recoveryPathway: 'Closed-loop chemical depolymerization into caprolactam monomer and engineered polymer re-extrusion.',
+    upcyclingSuitability: 'Moderate — Channeled into performance technical textiles, cordage, and industrial polymers.',
+    processingConsiderations: 'Check for polyurethane elastane coatings and wash out spin finishes before chemical recovery.'
+  },
+  {
+    id: 'acrylic',
+    name: 'Acrylic',
+    category: 'Synthetic Polymer',
+    origin: 'Synthetic Polymer (Polyacrylonitrile)',
+    description: 'Wool-mimicking lightweight synthetic polymer composed of at least 85% acrylonitrile units with high warmth.',
+    recoveryPathway: 'Mechanical fiber tearing for acoustic insulation batting, industrial wipe felts, and non-wovens.',
+    upcyclingSuitability: 'Moderate — Suitable for heavy blankets, utility felts, and acoustic padding.',
+    processingConsiderations: 'Ensure dust suppression and electrostatic grounding during mechanical fiber shredding operations.'
+  },
+  {
+    id: 'rayon',
+    name: 'Rayon',
+    category: 'Regenerated Cellulose',
+    origin: 'Regenerated Wood Cellulose (Viscose / Lyocell)',
+    description: 'Semi-synthetic fiber regenerated from purified wood pulp, blending natural drape with synthetic uniformity.',
+    recoveryPathway: 'Chemical cellulose solvent dissolution, circular dissolving pulp recovery, and blended garnetting.',
+    upcyclingSuitability: 'Moderate — Channeled into circular cellulose pulp blending and non-woven hygiene sheets.',
+    processingConsiderations: 'Reduced wet tensile strength mandates dry or solvent-based opening processes.'
+  },
+  {
+    id: 'mixed_fabrics',
+    name: 'Mixed Fabrics',
+    category: 'Multi-Component Blend',
+    origin: 'Composite Fiber Blend (e.g. Poly-Cotton, Multi-Fiber)',
+    description: 'Multi-component textile waste combining natural and synthetic fibers in intimate yarn blends.',
+    recoveryPathway: 'Hydrothermal enzyme separation, thermochemical separation, and industrial downcycling composites.',
+    upcyclingSuitability: 'Moderate to Low — Recommended for downcycled composite soundproofing and automotive trunk liners.',
+    processingConsiderations: 'Intimate fiber blends require chemical solvent fractionation for high-value mono-material recovery.'
+  }
+];
+
 function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [currentView, setCurrentView] = useState(localStorage.getItem('token') ? 'dashboard' : 'home');
+  const [selectedMaterial, setSelectedMaterial] = useState(null);
   
   // Auth Form State
   const [username, setUsername] = useState('');
@@ -1033,8 +1137,24 @@ function App() {
   const chartFabricData = Object.keys(fabricCounts).length > 0 ? fabricCounts : { Cotton: 45, Denim: 30, Polyester: 25, Wool: 15 };
   const chartCategoryData = Object.keys(categoryCounts).length > 0 ? categoryCounts : { Recyclable: 8, Upcyclable: 5, Reusable: 3, Repairable: 2 };
 
+  const getBatchesForMaterial = (matName) => {
+    if (!matName || !batches || batches.length === 0) return [];
+    const target = matName.toLowerCase().trim();
+    return batches.filter(b => {
+      const ft = (b.fabric_type || '').toLowerCase().trim();
+      if (target === 'rayon') {
+        return ft === 'rayon' || ft.includes('rayon') || ft.includes('viscose');
+      }
+      if (target === 'mixed fabrics') {
+        return ft === 'mixed fabrics' || ft === 'mixed' || ft.includes('blend') || ft.includes('mixed');
+      }
+      return ft === target || ft.includes(target);
+    });
+  };
+
   const changeView = (newView) => {
     setCurrentView(newView);
+    setSelectedMaterial(null);
     setBatchError('');
     setBatchSuccess('');
   };
@@ -2311,119 +2431,316 @@ function App() {
         </div>
       )}
 
-      {/* Material Classification Page */}
+      {/* Interactive Material Library & Live Inventory Connection */}
       {currentView === 'classification' && user && (
         <div>
-          <div className="dashboard-title-bar" style={{ marginBottom: '1.5rem' }}>
+          {!selectedMaterial ? (
+            /* 1. Material Library Overview Grid */
             <div>
-              <h2 style={{ fontSize: '1.8rem' }}>Material Classification</h2>
-              <p className="dashboard-subtitle-text">Supported textile materials and their recovery pathways.</p>
-            </div>
-          </div>
-
-          <div className="dashboard-grid">
-            <div className="batch-card glass">
-              <h3 className="card-title">Supported Materials</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div className="dashboard-title-bar" style={{ marginBottom: '1.5rem' }}>
                 <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--color-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>
-                    Natural Fibers
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Cotton</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Plant Cellulose</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Denim</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Woven Twill Cotton</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Wool</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Animal Protein</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Silk</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Animal Protein</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Linen</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Flax Bast Fiber</div>
-                    </div>
-                  </div>
+                  <h2 style={{ fontSize: '1.8rem' }}>Material Library</h2>
+                  <p className="dashboard-subtitle-text">
+                    Supported textile materials, recovery pathways, and live inventory records.
+                  </p>
                 </div>
+              </div>
 
-                <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--color-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>
-                    Synthetic Fibers
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Polyester</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Synthetic Polymer</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Nylon</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Polyamide Synthetic</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Acrylic</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Polyacrylonitrile</div>
-                    </div>
-                  </div>
-                </div>
+              <div className="material-library-grid">
+                {SUPPORTED_MATERIALS.map((mat) => {
+                  const matBatches = getBatchesForMaterial(mat.name);
+                  const batchCount = matBatches.length;
+                  const totalMatWeight = matBatches.reduce((sum, b) => sum + (parseFloat(b.quantity) || 0), 0);
+                  const isNatural = mat.category === 'Natural Fiber';
 
-                <div>
-                  <div style={{ fontSize: '0.78rem', color: '#F59E0B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>
-                    Regenerated & Blended Fibers
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Rayon (Viscose)</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Regenerated Cellulose</div>
+                  return (
+                    <div 
+                      key={mat.id} 
+                      className="material-card glass"
+                      onClick={() => setSelectedMaterial(mat)}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
+                          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+                            {mat.name}
+                          </h3>
+                          <span className={`tag ${isNatural ? 'tag-new' : 'tag-score'}`} style={{ fontSize: '0.72rem', padding: '0.2rem 0.6rem' }}>
+                            {mat.category}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
+                          {mat.origin}
+                        </div>
+                        <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1rem' }}>
+                          {mat.description}
+                        </p>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', background: 'rgba(84, 214, 155, 0.06)', border: '1px solid rgba(84, 214, 155, 0.15)', borderRadius: '6px', padding: '0.5rem 0.8rem', marginBottom: '1rem' }}>
+                          <strong>Recovery Route:</strong> {mat.recoveryPathway.split(',')[0]}
+                        </div>
+                      </div>
+
+                      <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: batchCount > 0 ? 'var(--color-primary)' : 'var(--text-muted)' }}>
+                          {batchCount} {batchCount === 1 ? 'batch' : 'batches'} · {totalMatWeight.toFixed(1)} kg
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--color-secondary)', fontWeight: 600 }}>
+                          View Details →
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <strong>Mixed Fabrics</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Multi-Fiber Blends</div>
+                  );
+                })}
+              </div>
+
+              {/* Recovery Pathways Reference */}
+              <div className="batch-card glass" style={{ marginTop: '2rem' }}>
+                <h3 className="card-title">Recovery Pathways</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--color-primary)' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--color-primary)', fontSize: '0.9rem' }}>RECYCLABLE</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                      Mechanical or chemical fiber re-granulation and yarn spinning.
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--color-secondary)' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--color-secondary)', fontSize: '0.9rem' }}>UPCYCLABLE</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                      Direct garment redesign, atelier repurposing, and patchwork.
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid #F59E0B' }}>
+                    <div style={{ fontWeight: 700, color: '#F59E0B', fontSize: '0.9rem' }}>REPAIRABLE</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                      Refurbishment, mending, and secondary non-critical utility.
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid #EF4444' }}>
+                    <div style={{ fontWeight: 700, color: '#EF4444', fontSize: '0.9rem' }}>HAZARDOUS</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                      Contaminated scrap requiring specialized chemical decontamination.
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+          ) : (
+            /* 2. Dedicated Material Details View & Related Live Inventory */
+            (() => {
+              const matBatches = getBatchesForMaterial(selectedMaterial.name);
+              const totalBatches = matBatches.length;
+              const totalMatWeight = matBatches.reduce((acc, b) => acc + (parseFloat(b.quantity) || 0), 0);
+              const avgCircularity = totalBatches > 0
+                ? (matBatches.reduce((acc, b) => acc + (parseFloat(b.circularity_score) || 0), 0) / totalBatches).toFixed(1)
+                : '0.0';
 
-            <div className="batch-card glass">
-              <h3 className="card-title">Recovery Categories</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--color-primary)' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--color-primary)', fontSize: '0.95rem' }}>RECYCLABLE</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    Suitable for material recovery through mechanical or chemical processing.
+              return (
+                <div>
+                  {/* Top Navigation */}
+                  <button 
+                    onClick={() => setSelectedMaterial(null)} 
+                    className="btn btn-secondary" 
+                    style={{ width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.2rem', padding: '0.5rem 1.2rem', fontSize: '0.85rem' }}
+                  >
+                    ← Back to Materials
+                  </button>
+
+                  {/* Header Banner */}
+                  <div className="batch-card glass" style={{ marginBottom: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.4rem' }}>
+                          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+                            {selectedMaterial.name}
+                          </h2>
+                          <span className="tag tag-new" style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem' }}>
+                            {selectedMaterial.category}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--color-primary)', fontWeight: 600, marginBottom: '0.5rem' }}>
+                          {selectedMaterial.origin}
+                        </div>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', maxWidth: '850px', lineHeight: 1.6, margin: 0 }}>
+                          {selectedMaterial.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Summary Metrics */}
+                  <div className="metrics-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div className="metric-card glass">
+                      <div className="metric-title">Total Batches</div>
+                      <div className="metric-value">{totalBatches}</div>
+                      <div className="metric-trend">Recorded in Live Ledger</div>
+                    </div>
+                    <div className="metric-card glass">
+                      <div className="metric-title">Total Weight</div>
+                      <div className="metric-value">{totalMatWeight.toFixed(1)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
+                      <div className="metric-trend">Facility Intake Volume</div>
+                    </div>
+                    <div className="metric-card glass">
+                      <div className="metric-title">Average Circularity</div>
+                      <div className="metric-value">{totalBatches > 0 ? `${avgCircularity}%` : '0.0%'}</div>
+                      <div className="metric-trend">Calculated Recovery Score</div>
+                    </div>
+                    <div className="metric-card glass">
+                      <div className="metric-title">Primary Recovery</div>
+                      <div className="metric-value" style={{ fontSize: '1.1rem', marginTop: '0.3rem' }}>
+                        {selectedMaterial.category === 'Natural Fiber' ? 'Mechanical / Upcycling' : selectedMaterial.category === 'Synthetic Polymer' ? 'Chemical Depolymerization' : 'Dissolution Separation'}
+                      </div>
+                      <div className="metric-trend">Industrial Pathway</div>
+                    </div>
+                  </div>
+
+                  {/* Two-Column Detail Grid */}
+                  <div className="dashboard-grid">
+                    {/* Left: Material Profile & Processing Guide */}
+                    <div className="batch-card glass">
+                      <h3 className="card-title">Fiber Properties & Processing</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                        <div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>
+                            Fiber Family & Category
+                          </div>
+                          <div style={{ fontWeight: 600, color: '#ffffff' }}>{selectedMaterial.category}</div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>
+                            Fiber Origin & Source
+                          </div>
+                          <div style={{ fontWeight: 600, color: '#ffffff' }}>{selectedMaterial.origin}</div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>
+                            Industrial Recovery Pathway
+                          </div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                            {selectedMaterial.recoveryPathway}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>
+                            Reuse & Upcycling Suitability
+                          </div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                            {selectedMaterial.upcyclingSuitability}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>
+                            Processing & Handling Considerations
+                          </div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                            {selectedMaterial.processingConsiderations}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Related Live Inventory Batches */}
+                    <div className="batch-card glass">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
+                        <div>
+                          <h3 className="card-title" style={{ margin: 0 }}>Related Inventory Batches</h3>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
+                            Live intake batches currently recorded for {selectedMaterial.name} ({totalBatches}).
+                          </p>
+                        </div>
+                      </div>
+
+                      {totalBatches === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '3.5rem 1.5rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                          <div style={{ fontSize: '2.2rem', marginBottom: '0.8rem' }}>📦</div>
+                          <div style={{ fontWeight: 600, color: '#ffffff', fontSize: '1rem', marginBottom: '0.35rem' }}>
+                            No inventory batches currently recorded for this material.
+                          </div>
+                          <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 auto 1.4rem auto', lineHeight: 1.5 }}>
+                            Intake batches confirmed with fabric type "{selectedMaterial.name}" will automatically appear here with their verified circularity and diagnostic metrics.
+                          </p>
+                          <button 
+                            onClick={() => changeView('analysis')} 
+                            className="btn btn-primary" 
+                            style={{ width: 'auto', padding: '0.6rem 1.4rem', fontSize: '0.85rem' }}
+                          >
+                            Upload & Register Batch
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', maxHeight: '550px', overflowY: 'auto', paddingRight: '0.3rem' }}>
+                          {matBatches.map((b) => (
+                            <div 
+                              key={b.id}
+                              style={{
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px solid rgba(255, 255, 255, 0.07)',
+                                borderRadius: '10px',
+                                padding: '1rem 1.2rem',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                  {b.image_path ? (
+                                    <img 
+                                      src={`http://localhost:8000${b.image_path}`} 
+                                      alt="fabric thumbnail" 
+                                      style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} 
+                                    />
+                                  ) : (
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
+                                      🧵
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.95rem' }}>
+                                      Batch #{b.id}
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                      {b.source} • {b.color}
+                                    </div>
+                                  </div>
+                                </div>
+                                <span className={`tag tag-score ${b.circularity_score >= 70 ? 'high' : ''}`} style={{ fontSize: '0.78rem' }}>
+                                  {b.circularity_score}% Circularity
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.7rem', paddingTop: '0.6rem', borderTop: '1px solid rgba(255, 255, 255, 0.05)', fontSize: '0.82rem' }}>
+                                <div>
+                                  <span style={{ color: 'var(--text-muted)' }}>Condition: </span>
+                                  <strong style={{ color: '#ffffff' }}>{b.condition}</strong>
+                                  <span style={{ margin: '0 0.5rem', color: 'rgba(255,255,255,0.2)' }}>•</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>Weight: </span>
+                                  <strong style={{ color: 'var(--color-primary)' }}>{b.quantity} kg</strong>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                  <span className="tag tag-new" style={{ fontSize: '0.72rem' }}>{b.waste_category || 'Recyclable'}</span>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{b.recycling_recommendation}</span>
+                                </div>
+                              </div>
+
+                              {b.confidence_score != null && (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
+                                  AI Evidence: {b.confidence_score}% Conf • {b.damage_score ?? 0}% Dmg {b.contamination_detected ? '• ⚠️ Contam' : '• Clean'}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--color-secondary)' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--color-secondary)', fontSize: '0.95rem' }}>UPCYCLABLE</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    Suitable for direct reuse or conversion into higher-value products.
-                  </div>
-                </div>
-
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid #F59E0B' }}>
-                  <div style={{ fontWeight: 700, color: '#F59E0B', fontSize: '0.95rem' }}>REPAIRABLE</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    Suitable for repair, refurbishment, or secondary use.
-                  </div>
-                </div>
-
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid #EF4444' }}>
-                  <div style={{ fontWeight: 700, color: '#EF4444', fontSize: '0.95rem' }}>HAZARDOUS</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    Contaminated material requiring controlled handling or treatment.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+              );
+            })()
+          )}
         </div>
       )}
 
