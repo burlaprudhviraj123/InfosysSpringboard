@@ -35,6 +35,7 @@ ml/class_distribution.json
 *.zip
 *.zip.*
 *.pth
+!ml/models/textile_classifier.pth
 *.pt
 *.onnx
 *.bin
