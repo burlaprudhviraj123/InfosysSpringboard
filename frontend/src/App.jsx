@@ -2569,29 +2569,42 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Dynamic Summary Metrics */}
-                  <div className="metrics-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                    <div className="metric-card glass">
-                      <div className="metric-title">Total Batches</div>
-                      <div className="metric-value">{totalBatches}</div>
-                      <div className="metric-trend">Recorded in Live Ledger</div>
+                  {/* Clean Summary Metric Cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: '12px', padding: '1.2rem 1.4rem' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Recorded Batches
+                      </div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: 700, color: '#ffffff', marginTop: '0.3rem' }}>
+                        {totalBatches}
+                      </div>
                     </div>
-                    <div className="metric-card glass">
-                      <div className="metric-title">Total Weight</div>
-                      <div className="metric-value">{totalMatWeight.toFixed(1)} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>kg</span></div>
-                      <div className="metric-trend">Facility Intake Volume</div>
+
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: '12px', padding: '1.2rem 1.4rem' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Total Weight
+                      </div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: 700, color: totalMatWeight > 0 ? 'var(--color-primary)' : '#ffffff', marginTop: '0.3rem' }}>
+                        {totalMatWeight > 0 ? `${totalMatWeight.toFixed(1)} kg` : '0 kg'}
+                      </div>
                     </div>
-                    <div className="metric-card glass">
-                      <div className="metric-title">Average Circularity</div>
-                      <div className="metric-value">{totalBatches > 0 ? `${avgCircularity}%` : '0.0%'}</div>
-                      <div className="metric-trend">Calculated Recovery Score</div>
+
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: '12px', padding: '1.2rem 1.4rem' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Average Circularity
+                      </div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: 700, color: totalBatches > 0 ? 'var(--color-secondary)' : '#ffffff', marginTop: '0.3rem' }}>
+                        {totalBatches > 0 ? `${avgCircularity}%` : '—'}
+                      </div>
                     </div>
-                    <div className="metric-card glass">
-                      <div className="metric-title">Primary Recovery</div>
-                      <div className="metric-value" style={{ fontSize: '1.1rem', marginTop: '0.3rem' }}>
+
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: '12px', padding: '1.2rem 1.4rem' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Primary Strategy
+                      </div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#ffffff', marginTop: '0.5rem', lineHeight: 1.3 }}>
                         {selectedMaterial.category === 'Natural Fiber' ? 'Mechanical / Upcycling' : selectedMaterial.category === 'Synthetic Polymer' ? 'Chemical Depolymerization' : 'Dissolution Separation'}
                       </div>
-                      <div className="metric-trend">Industrial Pathway</div>
                     </div>
                   </div>
 
