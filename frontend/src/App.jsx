@@ -2155,13 +2155,10 @@ function App() {
                     </div>
                   )}
 
-                  <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1.2rem', marginBottom: '1rem' }}>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--color-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>
-                      Human Operator Confirmation
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Confirm physical intake parameters. The final circularity score and recovery pathway are computed using your verified condition.
-                    </div>
+                  <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1.2rem', marginBottom: '1.2rem' }}>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                      Batch Intake Details
+                    </h3>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
