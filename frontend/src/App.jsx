@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE || (typeof window !== 'undefined' && window.location.port === '5173' && window.location.hostname === 'localhost' ? "http://localhost:8000/api" : "/api");
 
 // Custom Dynamic SVG Pie / Donut Chart Component
 function PieChart({ data, unit = "kg" }) {
