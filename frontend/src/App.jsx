@@ -928,7 +928,13 @@ function App() {
           source: source,
           quantity: parseFloat(quantity),
           condition: condition,
-          collection_date: collectionDate
+          collection_date: collectionDate,
+          damage_score: analyzedResult.damage_score != null ? parseFloat(analyzedResult.damage_score) : null,
+          contamination_detected: Boolean(analyzedResult.contamination_detected),
+          confidence_score: analyzedResult.confidence_score != null ? parseFloat(analyzedResult.confidence_score) : null,
+          structural_integrity: analyzedResult.structural_integrity != null ? parseFloat(analyzedResult.structural_integrity) : null,
+          stain_risk: analyzedResult.stain_risk != null ? parseFloat(analyzedResult.stain_risk) : null,
+          weave_pattern: analyzedResult.weave_pattern || null
         })
       });
       const data = await res.json();
@@ -2126,6 +2132,38 @@ function App() {
                     </div>
                   </div>
 
+                  {analyzedResult.contamination_detected && (
+                    <div style={{
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      borderRadius: '10px',
+                      padding: '0.85rem 1.2rem',
+                      marginBottom: '1.2rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      color: '#fca5a5',
+                      fontSize: '0.88rem'
+                    }}>
+                      <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                      <div>
+                        <strong>Contamination / Elevated Stain Risk Detected ({analyzedResult.stain_risk}%).</strong>
+                        <div style={{ fontSize: '0.8rem', color: '#fecaca', marginTop: '0.15rem' }}>
+                          Computer Vision observed surface anomalies. Please visually verify fabric condition before confirming batch registration.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1.2rem', marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--color-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>
+                      Human Operator Confirmation
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Confirm physical intake parameters. The final circularity score and recovery pathway are computed using your verified condition.
+                    </div>
+                  </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                     <div className="form-group">
                       <label>Waste Source</label>
@@ -2241,8 +2279,13 @@ function App() {
                               />
                             )}
                             <div>
-                              <div style={{ fontWeight: 600 }}>{b.fabric_type}</div>
+                              <div style={{ fontWeight: 600 }}>{b.fabric_type} <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 500 }}>({b.condition})</span></div>
                               <small style={{ color: 'var(--text-muted)' }}>{b.color} • {b.source}</small>
+                              {b.confidence_score != null && (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                                  AI: {b.confidence_score}% Conf • {b.damage_score ?? 0}% Dmg {b.contamination_detected ? '• ⚠️ Contam' : '• Clean'}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>

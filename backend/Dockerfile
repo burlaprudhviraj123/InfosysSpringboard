@@ -22,8 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source code
+# Copy application source code and test suite
 COPY app/ ./app/
+COPY tests/ ./tests/
 COPY static/ ./static/
 
 # Create uploads directory for image analysis

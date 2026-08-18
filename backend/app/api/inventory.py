@@ -59,6 +59,13 @@ class BatchCreate(BaseModel):
     recycling_recommendation: Optional[str] = None
     recovery_category: Optional[str] = None
     circularity_score: Optional[float] = None
+    # Auditable AI/CV Diagnostic Evidence
+    damage_score: Optional[float] = None
+    contamination_detected: Optional[bool] = False
+    confidence_score: Optional[float] = None
+    structural_integrity: Optional[float] = None
+    stain_risk: Optional[float] = None
+    weave_pattern: Optional[str] = None
 
 class BatchResponse(BaseModel):
     id: int
@@ -74,6 +81,13 @@ class BatchResponse(BaseModel):
     waste_category: Optional[str]
     recycling_recommendation: Optional[str]
     recovery_category: Optional[str]
+    # Auditable AI/CV Diagnostic Evidence
+    damage_score: Optional[float] = None
+    contamination_detected: Optional[bool] = False
+    confidence_score: Optional[float] = None
+    structural_integrity: Optional[float] = None
+    stain_risk: Optional[float] = None
+    weave_pattern: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -267,7 +281,13 @@ def create_batch(
         image_path=batch_in.image_path,
         waste_category=waste_category,
         recycling_recommendation=recycling_recommendation,
-        recovery_category=recovery_category
+        recovery_category=recovery_category,
+        damage_score=batch_in.damage_score,
+        contamination_detected=batch_in.contamination_detected,
+        confidence_score=batch_in.confidence_score,
+        structural_integrity=batch_in.structural_integrity,
+        stain_risk=batch_in.stain_risk,
+        weave_pattern=batch_in.weave_pattern
     )
     db.add(db_batch)
     db.commit()
