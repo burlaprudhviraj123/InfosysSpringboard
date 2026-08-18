@@ -4,7 +4,8 @@ from fastapi.staticfiles import StaticFiles
 import os
 from app.core.config import settings
 from app.db.session import engine, Base
-from app.api import auth, inventory, sustainability
+from app.models import user, waste, announcement
+from app.api import auth, inventory, sustainability, notifications, reports
 
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
@@ -28,6 +29,17 @@ origins = [
     "*"                      # Allow all for testing
 ]
 
+import logging
+import time
+from fastapi import Request
+
+# Setup production logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("textile_platform")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -36,10 +48,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Routers
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.perf_counter()
+    path = request.url.path
+    method = request.method
+    
+    try:
+        response = await call_next(request)
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        if not path.startswith("/static"):
+            logger.info(f"{method} {path} - Status: {response.status_code} ({duration_ms:.2f}ms)")
+        return response
+    except Exception as e:
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        logger.error(f"{method} {path} - FAILED ({duration_ms:.2f}ms): {e}")
+        raise e
+
+# Include Routers with both v1 and base prefixes for complete compatibility
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["authentication"])
 app.include_router(inventory.router, prefix=f"{settings.API_V1_STR}/inventory", tags=["inventory"])
 app.include_router(sustainability.router, prefix=f"{settings.API_V1_STR}/sustainability", tags=["sustainability"])
+app.include_router(notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
+app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["reports"])
+
+app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
+app.include_router(inventory.router, prefix="/api/inventory", tags=["inventory"])
+app.include_router(sustainability.router, prefix="/api/sustainability", tags=["sustainability"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
+app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 
 @app.get("/")
 def read_root():
@@ -47,3 +84,12 @@ def read_root():
         "message": "Welcome to the AI Textile Waste Intelligence Platform API",
         "docs_url": "/docs"
     }
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "database": "connected",
+        "service": "fastapi"
+    }
+

@@ -4,12 +4,13 @@ from PIL import Image
 
 def analyze_image_properties(image_path: str):
     """
-    Advanced Multi-Layer OpenCV & PIL Feature Extractor for Textile Waste.
-    Returns visual metrics AND Operator Actionable Recovery Insights:
-    - Sorting Destination Bin
-    - Pre-Processing Requirements (e.g. Trim Zippers/Hardware)
-    - Estimated Raw Market Value ($/kg)
-    - Safety & Handling Precautions
+    Multi-Layer OpenCV & PIL Feature Extractor for Textile Waste.
+    Calculates optical, morphological, and statistical metrics:
+    - Dominant RGB & HSV color clustering
+    - Texture variance & weave pattern classification
+    - Edge density structural damage scoring
+    - Surface Laplacian variance (pilling & abrasion)
+    - LAB luminance standard deviation (stain & contamination risk)
     """
     try:
         img_cv = cv2.imread(image_path)
@@ -45,27 +46,27 @@ def analyze_image_properties(image_path: str):
         std_bgr = np.std(pixels, axis=0)
         secondary_color = "Neutral Shadow" if np.mean(std_bgr) < 30 else "Multi-Tone Weave"
 
-        # 2. Weave Pattern & Texture Analysis
+        # 2. Weave Pattern & Texture Variance Analysis
         gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-        glcm_var = np.var(gray)
-        if glcm_var > 3500:
+        texture_var = float(np.var(gray))
+        if texture_var > 3500:
             weave_pattern = "Heavy Twill / Denim Weave"
             thread_density = "High Density (~ 240 TPI)"
-        elif glcm_var > 1800:
+        elif texture_var > 1800:
             weave_pattern = "Woven Fiber Grid"
             thread_density = "Medium Density (~ 180 TPI)"
         else:
             weave_pattern = "Smooth Knit / Flat Texture"
             thread_density = "Soft Knit (~ 120 TPI)"
 
-        # 3. Structural Damage & Discontinuity Analysis
+        # 3. Structural Integrity & Edge Discontinuity Analysis
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         edges = cv2.Canny(blurred, 50, 150)
         edge_ratio = np.sum(edges > 0) / (edges.shape[0] * edges.shape[1])
         damage_score = min(round(edge_ratio * 800, 1), 95.0)
         structural_integrity = max(round(100.0 - damage_score, 1), 5.0)
 
-        laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+        laplacian_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
         if laplacian_var > 500:
             pilling_grade = "Grade 2 (Noticeable Pilling)"
         elif laplacian_var > 200:
@@ -73,40 +74,29 @@ def analyze_image_properties(image_path: str):
         else:
             pilling_grade = "Grade 5 (Smooth / No Pilling)"
 
-        # 4. Stain & Discoloration Contamination Check
+        # 4. Stain & Surface Contamination Check (LAB L-channel dispersion)
         lab = cv2.cvtColor(img_cv, cv2.COLOR_BGR2Lab)
         l_channel, _, _ = cv2.split(lab)
-        l_std = np.std(l_channel)
+        l_std = float(np.std(l_channel))
         stain_risk = min(round((l_std / 60.0) * 100, 1), 98.0)
         contamination_detected = bool(l_std > 42.0)
 
-        confidence_score = round(min(88.0 + (glcm_var % 10), 99.2), 1)
-
-        # 5. OPERATOR ACTIONABLE RECOVERY INSIGHTS
-        if "Denim" in color_name or "Blue" in color_name:
-            estimated_comp = "95% Cotton / 5% Elastane"
-            breathability = "High (88% Natural Flow)"
-            sorting_bin = "Bin A-1: Upcycling & Design Atelier"
-            preprocessing = "Cut seams & remove metal rivets/zippers"
-            safety_warning = "🟢 Safe (Standard PPE)"
-        elif contamination_detected:
-            estimated_comp = "70% Mixed Fiber / 30% Contaminated"
-            breathability = "Low Permeability"
+        # 5. Operational Handling Guidelines
+        if contamination_detected:
+            breathability = "Low Permeability (Contaminated)"
             sorting_bin = "Bin D-4: Hazardous & Industrial Treatment"
             preprocessing = "Isolate batch & wash with industrial solvent"
-            safety_warning = "⚠️ Hazardous (Wear Respirator & Gloves)"
+            safety_warning = "Hazardous (Wear Respirator & Gloves)"
         elif damage_score > 35.0:
-            estimated_comp = "60% Cotton / 40% Polyester Blend"
-            breathability = "Moderate (62% Permeability)"
+            breathability = "Moderate Permeability"
             sorting_bin = "Bin C-2: Mechanical Shredder & Insulation"
             preprocessing = "Remove synthetic lining & trim edges"
-            safety_warning = "🟡 Dust Risk (Wear Dust Mask)"
+            safety_warning = "Dust Risk (Wear Dust Mask)"
         else:
-            estimated_comp = "100% Natural Organic Cotton"
-            breathability = "Maximum (96% Natural Flow)"
-            sorting_bin = "Bin B-1: Pure Cotton Yarn Spinning Mill"
-            preprocessing = "No preprocessing needed (Clean Raw Scrap)"
-            safety_warning = "🟢 Safe (Standard PPE)"
+            breathability = "High (Natural Air Permeability)"
+            sorting_bin = "Bin A-1: Upcycling & Recovery Atelier"
+            preprocessing = "Standard Sorting & Inspection"
+            safety_warning = "Safe (Standard PPE)"
 
         return {
             "color": color_name,
@@ -115,20 +105,19 @@ def analyze_image_properties(image_path: str):
             "dye_fastness": dye_fastness,
             "weave_pattern": weave_pattern,
             "thread_density": thread_density,
+            "texture_variance": round(texture_var, 2),
             "structural_integrity": structural_integrity,
             "damage_score": damage_score,
             "pilling_grade": pilling_grade,
             "stain_risk": stain_risk,
             "contamination_detected": contamination_detected,
-            "confidence_score": confidence_score,
-            "estimated_composition": estimated_comp,
             "breathability": breathability,
             "sorting_bin": sorting_bin,
             "preprocessing": preprocessing,
             "safety_warning": safety_warning
         }
     except Exception as e:
-        print(f"Error in deep visual analysis: {e}")
+        print(f"Error in visual analysis: {e}")
         return get_default_diagnostics()
 
 def get_default_diagnostics():
@@ -139,15 +128,14 @@ def get_default_diagnostics():
         "dye_fastness": "Vibrant / Unfaded Dye",
         "weave_pattern": "Standard Woven",
         "thread_density": "Medium Density (~ 180 TPI)",
+        "texture_variance": 2100.0,
         "structural_integrity": 92.0,
         "damage_score": 8.0,
         "pilling_grade": "Grade 4 (Slight Surface Wear)",
         "stain_risk": 4.5,
         "contamination_detected": False,
-        "confidence_score": 94.5,
-        "estimated_composition": "95% Cotton / 5% Blend",
         "breathability": "High (85% Air Permeability)",
         "sorting_bin": "Bin A-1: Upcycling & Design Atelier",
         "preprocessing": "Cut seams & remove metal rivets/zippers",
-        "safety_warning": "🟢 Safe (Standard PPE)"
+        "safety_warning": "Safe (Standard PPE)"
     }

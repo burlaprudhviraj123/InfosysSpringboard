@@ -1,0 +1,68 @@
+{
+  "model_architecture": "EfficientNet-B0",
+  "input_size": [
+    3,
+    224,
+    224
+  ],
+  "normalization": {
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "num_classes": 10,
+  "class_to_idx": {
+    "Acrylic": 0,
+    "Cotton": 1,
+    "Denim": 2,
+    "Linen": 3,
+    "Mixed Fabrics": 4,
+    "Nylon": 5,
+    "Polyester": 6,
+    "Rayon (Viscose)": 7,
+    "Silk": 8,
+    "Wool": 9
+  },
+  "idx_to_class": {
+    "0": "Acrylic",
+    "1": "Cotton",
+    "2": "Denim",
+    "3": "Linen",
+    "4": "Mixed Fabrics",
+    "5": "Nylon",
+    "6": "Polyester",
+    "7": "Rayon (Viscose)",
+    "8": "Silk",
+    "9": "Wool"
+  },
+  "model_version": "1.0.0-textile-b0",
+  "training_device": "mps",
+  "training_time_seconds": 954.85,
+  "best_validation_epoch": {
+    "stage": 2,
+    "epoch": 7,
+    "val_f1": 0.7052702423553813,
+    "val_acc": 0.702
+  },
+  "held_out_test_metrics": {
+    "overall_accuracy": 0.7195121951219512,
+    "macro_precision": 0.6877249614513479,
+    "macro_recall": 0.7764899574469248,
+    "macro_f1": 0.7188297410842346,
+    "weighted_precision": 0.7301016656001289,
+    "weighted_recall": 0.7195121951219512,
+    "weighted_f1": 0.7205356260230881,
+    "total_test_images": 984,
+    "total_test_samples": 246,
+    "device_used": "mps",
+    "total_training_time_seconds": 954.85
+  },
+  "checkpoint_file": "ml/models/textile_classifier.pth"
+}

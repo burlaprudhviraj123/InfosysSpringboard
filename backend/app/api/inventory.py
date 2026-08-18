@@ -25,12 +25,16 @@ class AnalyzeResponse(BaseModel):
     dye_fastness: str
     weave_pattern: str
     thread_density: str
+    texture_variance: Optional[float] = 0.0
     structural_integrity: float
     damage_score: float
     pilling_grade: str
     stain_risk: float
     contamination_detected: bool
     confidence_score: float
+    confidence: Optional[float] = 0.0
+    top_predictions: Optional[List[dict]] = []
+    model_metadata: Optional[dict] = {}
     estimated_composition: Optional[str] = "100% Fiber"
     blend_identification: str
     material_quality: str
@@ -41,6 +45,8 @@ class AnalyzeResponse(BaseModel):
     preprocessing: str
     safety_warning: str
 
+    model_config = {"protected_namespaces": ()}
+
 class BatchCreate(BaseModel):
     image_path: str
     fabric_type: str
@@ -48,6 +54,11 @@ class BatchCreate(BaseModel):
     source: str
     quantity: float
     condition: str
+    collection_date: Optional[str] = None
+    waste_category: Optional[str] = None
+    recycling_recommendation: Optional[str] = None
+    recovery_category: Optional[str] = None
+    circularity_score: Optional[float] = None
 
 class BatchResponse(BaseModel):
     id: int
@@ -85,7 +96,7 @@ def require_admin(current_user: User = Depends(get_current_user)):
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "static", "uploads")
 
-# Step 1: Upload & Analyze Image (Engine Sections 3, 4, 5, 6)
+# Step 1: Upload & Analyze Image (Non-Persisting — Runs ML Classifier + CV Analytics)
 @router.post("/analyze", response_model=AnalyzeResponse)
 def analyze_fabric_image(
     file: UploadFile = File(...),
@@ -103,18 +114,23 @@ def analyze_fabric_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save image: {str(e)}")
 
-    # Section 4: Material Classification Engine
-    predicted_fabric = fabric_classifier.predict_fabric(file_path)
+    # Section 4: Deep Learning Material Classification Engine (EfficientNet-B0 PyTorch)
+    ml_result = fabric_classifier.predict(file_path)
+    predicted_fabric = ml_result["predicted_material"]
+    confidence_score = ml_result["confidence_pct"]
+    confidence_float = ml_result["confidence"]
+    top_preds = ml_result["top_predictions"]
+    model_meta = ml_result["model_metadata"]
     
-    # Section 3: Textile Image Analysis Engine
+    # Section 3: Textile Image Feature Extraction (OpenCV)
     diag = analyze_image_properties(file_path)
 
-    # Section 5 & 6: Waste Classification & Recycling Recommendation Engines
+    # Section 5 & 6: Deterministic Waste Classification & Recycling Strategy Rules
     contamination = diag["contamination_detected"]
     damage_score = diag["damage_score"]
     
     natural_fabrics = ["Cotton", "Denim", "Wool", "Linen", "Silk"]
-    synthetic_fabrics = ["Polyester", "Nylon", "Rayon", "Acrylic"]
+    synthetic_fabrics = ["Polyester", "Nylon", "Rayon (Viscose)", "Rayon", "Acrylic"]
 
     # Waste Category Determination (6 Categories: Recyclable, Reusable, Repairable, Upcyclable, Compostable, Hazardous Textile Waste)
     if contamination:
@@ -150,6 +166,7 @@ def analyze_fabric_image(
     else:
         blend_id = "Multi-Component Poly-Cotton Blend"
 
+    # Important: AI Analysis is non-persisting. No database record is inserted here.
     return {
         "image_path": f"/static/uploads/{unique_filename}",
         "fabric_type": predicted_fabric,
@@ -159,13 +176,17 @@ def analyze_fabric_image(
         "dye_fastness": diag["dye_fastness"],
         "weave_pattern": diag["weave_pattern"],
         "thread_density": diag["thread_density"],
+        "texture_variance": diag.get("texture_variance", 0.0),
         "structural_integrity": diag["structural_integrity"],
         "damage_score": diag["damage_score"],
         "pilling_grade": diag["pilling_grade"],
         "stain_risk": diag["stain_risk"],
         "contamination_detected": diag["contamination_detected"],
-        "confidence_score": diag["confidence_score"],
-        "estimated_composition": diag.get("estimated_composition", "95% Primary Fiber"),
+        "confidence_score": confidence_score,
+        "confidence": confidence_float,
+        "top_predictions": top_preds,
+        "model_metadata": model_meta,
+        "estimated_composition": diag.get("estimated_composition", "100% Primary Fiber"),
         "blend_identification": blend_id,
         "material_quality": material_quality,
         "breathability": diag.get("breathability", "High Flow"),
@@ -173,10 +194,12 @@ def analyze_fabric_image(
         "recycling_recommendation": recycling_recommendation,
         "sorting_bin": diag.get("sorting_bin", "Bin A-1: Upcycling Atelier"),
         "preprocessing": diag.get("preprocessing", "Standard Trim"),
-        "safety_warning": diag.get("safety_warning", "🟢 Safe")
+        "safety_warning": diag.get("safety_warning", "Safe (Standard PPE)")
     }
 
 # Step 2: Confirm & Save to Inventory Database
+from app.api.sustainability import compute_circularity_score_and_category
+
 @router.post("/batches", response_model=BatchResponse, status_code=status.HTTP_201_CREATED)
 def create_batch(
     batch_in: BatchCreate,
@@ -186,32 +209,24 @@ def create_batch(
     # Determine waste category and recommendation rules
     natural_fabrics = ["Cotton", "Wool", "Silk", "Linen", "Denim"]
     
-    # Calculate circularity score
-    condition_scores = {"New": 95, "Good": 85, "Fair": 65, "Poor": 40, "Damaged": 20}
-    recyclability_scores = {"Cotton": 90, "Denim": 85, "Wool": 80, "Silk": 75, "Linen": 85, "Polyester": 70, "Nylon": 65, "Rayon": 60, "Acrylic": 55, "Mixed Fabrics": 45}
+    # 5-Factor scoring parameters aligned with Section 9 of PDF Spec
+    condition_scores = {"New": 95.0, "Good": 85.0, "Fair": 65.0, "Poor": 40.0, "Damaged": 20.0}
+    recyclability_scores = {"Cotton": 90.0, "Denim": 85.0, "Wool": 80.0, "Silk": 75.0, "Linen": 85.0, "Polyester": 70.0, "Nylon": 65.0, "Rayon": 60.0, "Acrylic": 55.0, "Mixed Fabrics": 45.0}
+    reuse_scores = {"New": 95.0, "Good": 85.0, "Fair": 55.0, "Poor": 25.0, "Damaged": 10.0}
     
-    condition_val = condition_scores.get(batch_in.condition, 70)
-    recyclability_val = recyclability_scores.get(batch_in.fabric_type, 65)
-    env_benefit = 90.0 if batch_in.fabric_type in natural_fabrics else 70.0
+    condition_val = condition_scores.get(batch_in.condition, 70.0)
+    recyclability_val = recyclability_scores.get(batch_in.fabric_type, 65.0)
+    reuse_val = reuse_scores.get(batch_in.condition, 50.0)
+    env_benefit = 90.0 if batch_in.fabric_type in natural_fabrics else 65.0
+    feasibility_val = 85.0 if batch_in.fabric_type in ["Cotton", "Polyester", "Denim"] else 70.0
     
-    circularity_score = (
-        (0.35 * recyclability_val) +
-        (0.25 * condition_val) +
-        (0.25 * env_benefit) +
-        (0.15 * 85.0)
+    circularity_score, recovery_category = compute_circularity_score_and_category(
+        recyclability=recyclability_val,
+        condition=condition_val,
+        reuse_potential=reuse_val,
+        environmental_benefit=env_benefit,
+        processing_feasibility=feasibility_val
     )
-    circularity_score = round(circularity_score, 1)
-
-    if circularity_score >= 85.0:
-        recovery_category = "Excellent Recovery Potential"
-    elif circularity_score >= 70.0:
-        recovery_category = "High Recovery Potential"
-    elif circularity_score >= 50.0:
-        recovery_category = "Moderate Recovery Potential"
-    elif circularity_score >= 30.0:
-        recovery_category = "Limited Recovery Potential"
-    else:
-        recovery_category = "Disposal Recommended"
 
     if batch_in.condition in ["New", "Good"] and batch_in.fabric_type in natural_fabrics:
         waste_category = "Upcyclable"
@@ -235,7 +250,10 @@ def create_batch(
         try:
             parsed_date = datetime.strptime(batch_in.collection_date, "%Y-%m-%d")
         except Exception:
-            parsed_date = datetime.utcnow()
+            try:
+                parsed_date = datetime.fromisoformat(batch_in.collection_date.replace("Z", "+00:00"))
+            except Exception:
+                parsed_date = datetime.utcnow()
 
     db_batch = WasteBatch(
         fabric_type=batch_in.fabric_type,

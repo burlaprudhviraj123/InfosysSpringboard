@@ -1,0 +1,201 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+from datetime import datetime, timezone
+import io
+import pandas as pd
+
+from app.db.session import get_db
+from app.api.auth import get_current_user
+from app.models.user import User
+from app.models.waste import WasteBatch
+from app.core.sustainability_config import (
+    CO2_SAVINGS_FACTOR_KG_PER_KG,
+    WATER_SAVINGS_FACTOR_L_PER_KG,
+    LANDFILL_VOLUME_FACTOR_M3_PER_KG,
+    RECOVERY_MATERIAL_VALUE_USD_PER_KG,
+    GLOBAL_INDUSTRY_BASELINE_DIVERSION,
+)
+
+router = APIRouter()
+
+def get_report_data_dict(report_type: str, batches: list[WasteBatch]) -> dict:
+    total_batches = len(batches)
+    total_weight = sum(b.quantity for b in batches) if batches else 0.0
+    co2_avoided = total_weight * CO2_SAVINGS_FACTOR_KG_PER_KG
+    water_saved = total_weight * WATER_SAVINGS_FACTOR_L_PER_KG
+    landfill_spared = total_weight * LANDFILL_VOLUME_FACTOR_M3_PER_KG
+    feedstock_value = total_weight * RECOVERY_MATERIAL_VALUE_USD_PER_KG
+    
+    valid_scores = [b.circularity_score for b in batches if b.circularity_score is not None]
+    avg_circularity = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
+
+    # Material breakdown
+    material_counts = {}
+    material_weights = {}
+    category_counts = {}
+    recommendation_counts = {}
+
+    for b in batches:
+        material_counts[b.fabric_type] = material_counts.get(b.fabric_type, 0) + 1
+        material_weights[b.fabric_type] = round(material_weights.get(b.fabric_type, 0.0) + b.quantity, 2)
+        
+        cat = b.waste_category or "Unclassified"
+        category_counts[cat] = category_counts.get(cat, 0) + 1
+        
+        rec = b.recycling_recommendation or "General Recovery"
+        recommendation_counts[rec] = recommendation_counts.get(rec, 0) + 1
+
+    return {
+        "report_type": report_type,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "summary": {
+            "total_batches": total_batches,
+            "total_weight_kg": round(total_weight, 2),
+            "co2_avoided_kg": round(co2_avoided, 2),
+            "water_conserved_liters": round(water_saved, 1),
+            "landfill_space_m3": round(landfill_spared, 4),
+            "feedstock_value_usd": round(feedstock_value, 2),
+            "average_circularity_pct": round(avg_circularity, 1),
+            "industry_baseline_diversion_pct": GLOBAL_INDUSTRY_BASELINE_DIVERSION,
+        },
+        "material_weights": material_weights,
+        "material_counts": material_counts,
+        "category_counts": category_counts,
+        "recommendation_counts": recommendation_counts,
+        "records": [
+            {
+                "id": b.id,
+                "fabric_type": b.fabric_type,
+                "quantity_kg": b.quantity,
+                "color": b.color,
+                "condition": b.condition,
+                "waste_category": b.waste_category or "N/A",
+                "recycling_recommendation": b.recycling_recommendation or "N/A",
+                "circularity_score": b.circularity_score or 0.0,
+                "collection_date": b.collection_date.strftime("%Y-%m-%d") if hasattr(b.collection_date, "strftime") else str(b.collection_date).split("T")[0],
+            }
+            for b in batches
+        ]
+    }
+
+@router.get("/data")
+def get_report_data(
+    report_type: str = Query("sustainability", pattern="^(waste_classification|recycling|sustainability|environmental_impact|circular_economy)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get dynamic report analytics for the 5 specification report types:
+    1. Waste classification reports
+    2. Recycling reports
+    3. Sustainability reports
+    4. Environmental impact reports
+    5. Circular economy reports
+    """
+    batches = db.query(WasteBatch).order_by(WasteBatch.id.desc()).all()
+    return get_report_data_dict(report_type, batches)
+
+@router.get("/export/excel")
+def export_excel_report(
+    report_type: str = Query("sustainability", pattern="^(waste_classification|recycling|sustainability|environmental_impact|circular_economy)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Export Excel (.xlsx) workbook for the requested report type using openpyxl and pandas.
+    """
+    batches = db.query(WasteBatch).order_by(WasteBatch.id.desc()).all()
+    data = get_report_data_dict(report_type, batches)
+    
+    output = io.BytesIO()
+    
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        # Sheet 1: Executive Summary
+        summary_rows = [
+            {"Metric": "Report Type", "Value": report_type.replace("_", " ").title()},
+            {"Metric": "Generated Timestamp (UTC)", "Value": data["generated_at"]},
+            {"Metric": "Generated By", "Value": current_user.username},
+            {"Metric": "User Role", "Value": current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role)},
+            {"Metric": "Total Sorted Batches", "Value": data["summary"]["total_batches"]},
+            {"Metric": "Total Diverted Weight (kg)", "Value": data["summary"]["total_weight_kg"]},
+            {"Metric": "CO2 Emissions Avoided (kg)", "Value": data["summary"]["co2_avoided_kg"]},
+            {"Metric": "Water Conserved (Liters)", "Value": data["summary"]["water_conserved_liters"]},
+            {"Metric": "Landfill Space Spared (m³)", "Value": data["summary"]["landfill_space_m3"]},
+            {"Metric": "Recovered Feedstock Value ($)", "Value": data["summary"]["feedstock_value_usd"]},
+            {"Metric": "Average Circularity Index (%)", "Value": data["summary"]["average_circularity_pct"]},
+        ]
+        df_summary = pd.DataFrame(summary_rows)
+        df_summary.to_excel(writer, sheet_name="Executive Summary", index=False)
+
+        # Sheet 2: Inventory Records
+        if data["records"]:
+            df_records = pd.DataFrame(data["records"])
+            df_records.columns = [
+                "Batch ID", "Fabric Type", "Weight (kg)", "Color", 
+                "Condition", "Waste Category", "Recycling Strategy", 
+                "Circularity Score (%)", "Collection Date"
+            ]
+            df_records.to_excel(writer, sheet_name="Batch Ledger", index=False)
+        else:
+            df_empty = pd.DataFrame([{"Notice": "No active textile batches registered in facility ledger."}])
+            df_empty.to_excel(writer, sheet_name="Batch Ledger", index=False)
+
+        # Sheet 3: Material Breakdown
+        if data["material_weights"]:
+            df_mat = pd.DataFrame([
+                {"Fabric Type": k, "Total Weight (kg)": v, "Batch Count": data["material_counts"].get(k, 0)}
+                for k, v in data["material_weights"].items()
+            ])
+            df_mat.to_excel(writer, sheet_name="Material Breakdown", index=False)
+
+    output.seek(0)
+    filename = f"TexWaste_{report_type}_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"'
+    }
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers
+    )
+
+@router.get("/export/csv")
+def export_csv_report(
+    report_type: str = Query("sustainability", pattern="^(waste_classification|recycling|sustainability|environmental_impact|circular_economy)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Export CSV file for the requested report type.
+    """
+    batches = db.query(WasteBatch).order_by(WasteBatch.id.desc()).all()
+    data = get_report_data_dict(report_type, batches)
+    
+    if data["records"]:
+        df = pd.DataFrame(data["records"])
+        df.columns = [
+            "Batch_ID", "Fabric_Type", "Weight_kg", "Color", 
+            "Condition", "Waste_Category", "Recycling_Strategy", 
+            "Circularity_Score_Pct", "Collection_Date"
+        ]
+    else:
+        df = pd.DataFrame(columns=[
+            "Batch_ID", "Fabric_Type", "Weight_kg", "Color", 
+            "Condition", "Waste_Category", "Recycling_Strategy", 
+            "Circularity_Score_Pct", "Collection_Date"
+        ])
+        
+    output = io.StringIO()
+    df.to_csv(output, index=False)
+    
+    filename = f"TexWaste_{report_type}_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"'
+    }
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers=headers
+    )

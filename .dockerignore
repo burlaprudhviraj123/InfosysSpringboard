@@ -1,0 +1,39 @@
+# ML Datasets (Never copy 1.8GB dataset into Docker context)
+ml/dataset/
+ml/dataset_report.json
+*.zip
+*.zip.*
+
+# Local Virtual Environments & Dependencies
+venv/
+backend/venv/
+node_modules/
+frontend/node_modules/
+
+# Build artifacts & logs
+dist/
+build/
+*.log
+.system_generated/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Git & OS metadata
+.git/
+.gitignore
+.DS_Store
+Thumbs.db
+
+# Local databases
+*.sqlite3
+*.db
+backend/textile_waste.db
+
+# Local secret files
+.env
+backend/.env
+frontend/.env

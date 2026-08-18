@@ -1,0 +1,13 @@
+{
+  "overall_accuracy": 0.7195121951219512,
+  "macro_precision": 0.6877249614513479,
+  "macro_recall": 0.7764899574469248,
+  "macro_f1": 0.7188297410842346,
+  "weighted_precision": 0.7301016656001289,
+  "weighted_recall": 0.7195121951219512,
+  "weighted_f1": 0.7205356260230881,
+  "total_test_images": 984,
+  "total_test_samples": 246,
+  "device_used": "mps",
+  "total_training_time_seconds": 954.85
+}

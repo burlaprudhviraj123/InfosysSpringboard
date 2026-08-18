@@ -88,8 +88,9 @@ function App() {
   const [otpStep, setOtpStep] = useState(1);
   const [otpCode, setOtpCode] = useState('');
   const [demoOtpHint, setDemoOtpHint] = useState('');
+  const [isOtpLoading, setIsOtpLoading] = useState(false);
 
-  // Milestone 3 Interactive Simulators State
+  // Sustainability & Simulator State
   const [simRecyclability, setSimRecyclability] = useState(85);
   const [simCondition, setSimCondition] = useState(80);
   const [simReuse, setSimReuse] = useState(75);
@@ -110,23 +111,31 @@ function App() {
     setAuthSuccess('');
   };
 
-  // Inventory & AI Engine State
+  // Inventory & Analysis State
   const [batches, setBatches] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzedResult, setAnalyzedResult] = useState(null);
   
-  // Milestone 3 Sustainability & Notifications State
+  // Sustainability Metrics & Notifications State
   const [esgMetrics, setEsgMetrics] = useState(null);
   const [manufacturerData, setManufacturerData] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(3);
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'intake', title: 'New Waste Batch Intake', message: 'Batch #TEX-8921 (450kg Cotton Offcuts) registered.', time: '10m ago', unread: true },
-    { id: 2, type: 'warning', title: 'Contamination Alert', message: 'Batch #TEX-8804 flagged 18% synthetic blend ratio.', time: '1h ago', unread: true },
-    { id: 3, type: 'milestone', title: 'Sustainability Milestone Hit', message: 'Monthly landfill diversion rate reached 94.2%!', time: '3h ago', unread: true }
-  ]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+
+  // Admin Announcements State
+  const [adminAnnouncements, setAdminAnnouncements] = useState([]);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [announcementSeverity, setAnnouncementSeverity] = useState('info');
+  const [announcementTargetRole, setAnnouncementTargetRole] = useState('ALL');
+  const [announcementError, setAnnouncementError] = useState('');
+  const [announcementSuccess, setAnnouncementSuccess] = useState('');
+
+  // Reports & Export System State
+  const [selectedReportType, setSelectedReportType] = useState('sustainability');
   
   // Spring Bouncing Nav Pill Indicator State
   const navContainerRef = useRef(null);
@@ -163,21 +172,63 @@ function App() {
 
   const handleGoogleOAuth2 = async () => {
     setAuthError('');
+    
+    // Check if Google GSI SDK is available
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+      try {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+          callback: async (tokenResponse) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              await sendGoogleTokenToBackend(tokenResponse.access_token);
+            }
+          },
+          error_callback: (err) => {
+            // User closed the popup window (x mark) or cancelled - gracefully do nothing
+            console.log("Google Sign-In popup closed by user:", err);
+          }
+        });
+        client.requestAccessToken();
+      } catch (e) {
+        console.error("Google Sign-In initialization error:", e);
+        setAuthError("Failed to open Google Sign-In popup.");
+      }
+    } else {
+      setAuthError("Google Identity Services SDK is not loaded. Check internet connection.");
+    }
+  };
+
+  const [pendingGoogleToken, setPendingGoogleToken] = useState(null);
+  const [pendingGoogleEmail, setPendingGoogleEmail] = useState('');
+  const [pendingGoogleName, setPendingGoogleName] = useState('');
+  const [showGoogleRoleModal, setShowGoogleRoleModal] = useState(false);
+
+  const sendGoogleTokenToBackend = async (googleToken, email = "operator.google@textilewaste.ai", name = "Google Operator", selectedRole = null) => {
     try {
       const res = await fetch(`${API_BASE}/auth/oauth2/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          google_token: "demo_google_oauth2_token",
-          email: "operator.google@textilewaste.ai",
-          name: "Google Operator"
+          google_token: googleToken,
+          email: email,
+          name: name,
+          role: selectedRole
         })
       });
       const data = await res.json();
       if (res.ok) {
+        if (data.is_new_user) {
+          setPendingGoogleToken(googleToken);
+          setPendingGoogleEmail(data.email || email);
+          setPendingGoogleName(data.username || name);
+          setShowGoogleRoleModal(true);
+          return;
+        }
         localStorage.setItem('token', data.access_token);
         setToken(data.access_token);
         setCurrentView('dashboard');
+        setShowGoogleRoleModal(false);
         setAuthSuccess('');
       } else {
         setAuthError(data.detail || "Google OAuth2 sign-in failed.");
@@ -187,6 +238,28 @@ function App() {
     }
   };
 
+  const handleUpdateRole = async (newRole) => {
+    setRole(newRole);
+    if (user) {
+      setUser({ ...user, role: newRole });
+    }
+    if (!token) return;
+    try {
+      await fetch(`${API_BASE}/auth/role`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ role: newRole })
+      });
+    } catch (err) {
+      console.error("Error updating role:", err);
+    }
+  };
+
+  const [allUsers, setAllUsers] = useState([]);
+
   // Load user profile & data if token exists
   useEffect(() => {
     if (token) {
@@ -194,8 +267,124 @@ function App() {
       fetchBatches();
       fetchSustainabilityMetrics();
       fetchManufacturerAnalytics();
+      fetchAllUsers();
+      fetchNotifications();
+      fetchAdminAnnouncements();
     }
   }, [token]);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/notifications`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+        setUnreadCount(data.filter(n => n.unread).length);
+      }
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const handleMarkNotificationAsRead = (id) => {
+    setNotifications(prev => prev.map(n => {
+      if (n.id === id) {
+        return { ...n, unread: false };
+      }
+      return n;
+    }));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
+  const handleMarkAllNotificationsAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+    setUnreadCount(0);
+  };
+
+  const fetchAdminAnnouncements = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/notifications/announcements`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAdminAnnouncements(data);
+      }
+    } catch (err) {
+      // Non-admins will receive 403, safely ignore
+    }
+  };
+
+  const handleCreateAnnouncement = async (e) => {
+    e.preventDefault();
+    setAnnouncementError('');
+    setAnnouncementSuccess('');
+    if (!announcementTitle.trim() || !announcementMessage.trim()) {
+      setAnnouncementError("Please provide both a notice title and message.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/notifications/announcements`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: announcementTitle.trim(),
+          message: announcementMessage.trim(),
+          severity: announcementSeverity,
+          target_role: announcementTargetRole
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAnnouncementSuccess("Announcement broadcast published successfully!");
+        setAnnouncementTitle('');
+        setAnnouncementMessage('');
+        setAnnouncementSeverity('info');
+        setAnnouncementTargetRole('ALL');
+        fetchAdminAnnouncements();
+        fetchNotifications();
+      } else {
+        setAnnouncementError(data.detail || "Failed to publish announcement.");
+      }
+    } catch (err) {
+      setAnnouncementError("Network error. Failed to broadcast announcement.");
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+    if (!confirm("Are you sure you want to remove this broadcast announcement?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/notifications/announcements/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchAdminAnnouncements();
+        fetchNotifications();
+      }
+    } catch (err) {
+      console.error("Error deleting announcement:", err);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAllUsers(data);
+      }
+    } catch (err) {
+      console.error("Error fetching all users:", err);
+    }
+  };
 
   const fetchUserProfile = async () => {
     try {
@@ -309,9 +498,11 @@ function App() {
   };
 
   const handleSendOTP = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+    if (isOtpLoading) return;
     setAuthError('');
     setAuthSuccess('');
+    setIsOtpLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/send-otp`, {
         method: 'POST',
@@ -321,28 +512,63 @@ function App() {
       const data = await res.json();
       if (res.ok) {
         setAuthSuccess(data.message);
-        if (data.otp_demo) {
-          setDemoOtpHint(data.otp_demo);
-          setOtpCode(data.otp_demo);
-        }
+        setOtpCode('');
         setOtpStep(2);
       } else {
         setAuthError(data.detail || "Failed to send OTP code.");
       }
     } catch (err) {
       setAuthError("Network connection error. Ensure FastAPI server is online.");
+    } finally {
+      setIsOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOTPOnly = async (e) => {
+    e.preventDefault();
+    if (isOtpLoading) return;
+    setAuthError('');
+    setAuthSuccess('');
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setAuthError("Please enter a valid 6-digit OTP code.");
+      return;
+    }
+    setIsOtpLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp_code: otpCode.trim() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAuthSuccess(data.message || "OTP verified! Please create your new password.");
+        setOtpStep(3);
+      } else {
+        setAuthError(data.detail || "Invalid or expired OTP code. Please check your email.");
+      }
+    } catch (err) {
+      setAuthError("Network connection error. Ensure FastAPI server is online.");
+    } finally {
+      setIsOtpLoading(false);
     }
   };
 
   const handleVerifyOTPReset = async (e) => {
     e.preventDefault();
+    if (isOtpLoading) return;
     setAuthError('');
     setAuthSuccess('');
+    if (!resetNewPassword || resetNewPassword.length < 4) {
+      setAuthError("Password must be at least 4 characters long.");
+      return;
+    }
+    setIsOtpLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/verify-otp-reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp_code: otpCode, new_password: resetNewPassword })
+        body: JSON.stringify({ email, otp_code: otpCode.trim(), new_password: resetNewPassword })
       });
       const data = await res.json();
       if (res.ok) {
@@ -357,6 +583,8 @@ function App() {
       }
     } catch (err) {
       setAuthError("Network connection error. Ensure FastAPI server is online.");
+    } finally {
+      setIsOtpLoading(false);
     }
   };
 
@@ -424,7 +652,7 @@ function App() {
         <div style="border-bottom: 2px solid #54D69B; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
           <div>
             <div style="font-size: 22px; font-weight: bold; color: #0f172a;">🌱 AI Textile Waste Intelligence Platform</div>
-            <div style="font-size: 13px; color: #475569; margin-top: 4px;">Official Material Recognition & Diagnostic Classification Report</div>
+            <div style="font-size: 13px; color: #475569; margin-top: 4px;">Textile Material Diagnostic & Assessment Report</div>
           </div>
           <span style="background: #e6f9f0; color: #0d9488; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; border: 1px solid #99f6e4;">
             MODEL CONFIDENCE: ${result.confidence_score || 96.4}%
@@ -455,29 +683,27 @@ function App() {
         </div>
 
         <div style="margin-bottom: 20px; background: #f0fdf4; border: 1px solid #a7f3d0; padding: 18px; border-radius: 10px; color: #166534;">
-          <div style="font-size: 12px; font-weight: bold; color: #15803d; margin-bottom: 12px; border-bottom: 1px solid #a7f3d0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">🌱 3. Sustainability Intelligence & Environmental Impact Assessment (Milestone 3 Engine)</div>
+          <div style="font-size: 12px; font-weight: bold; color: #15803d; margin-bottom: 12px; border-bottom: 1px solid #a7f3d0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">3. Sustainability & Environmental Impact Assessment</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; color: #166534;">
-            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">♻️ Recyclability & Circularity Rating:</span> <strong style="color: #047857;">${result.circularity_score || 88.5}% (High Recovery Potential)</strong></div>
-            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">🏷️ Predicted Waste Category:</span> <strong style="color: #047857;">${result.waste_category || 'Recyclable'}</strong></div>
-            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">🌱 Unit CO₂ Offset Factor:</span> <strong style="color: #047857;">3.6 kg CO₂ saved per kg fabric</strong></div>
-            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">💧 Unit Water Conservation Factor:</span> <strong style="color: #047857;">250 Liters saved per kg fabric</strong></div>
-            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">📦 Estimated CO₂ Savings (for 50kg Batch):</span> <strong style="color: #047857;">180.0 kg CO₂ Offset</strong></div>
-            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">💧 Estimated Water Saved (for 50kg Batch):</span> <strong style="color: #047857;">12,500 Liters Water Conserved</strong></div>
-            <div style="font-size: 13px; color: #166534; grid-column: span 2;"><span style="color: #15803d;">⚙️ Optimal Recovery & Recycling Pathway:</span> <strong style="color: #047857;">${result.recycling_recommendation || 'Mechanical Recycling / Upcycling Atelier'}</strong></div>
+            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">Circularity Rating:</span> <strong style="color: #047857;">${result.circularity_score || 85.8}%</strong></div>
+            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">Recovery Category:</span> <strong style="color: #047857;">${result.waste_category || 'Recyclable'}</strong></div>
+            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">Unit CO2 Offset Factor:</span> <strong style="color: #047857;">3.6 kg CO2 saved per kg diverted</strong></div>
+            <div style="font-size: 13px; color: #166534;"><span style="color: #15803d;">Unit Water Conservation Factor:</span> <strong style="color: #047857;">250 Liters saved per kg diverted</strong></div>
+            <div style="font-size: 13px; color: #166534; grid-column: span 2;"><span style="color: #15803d;">Recommended Recovery Pathway:</span> <strong style="color: #047857;">${result.recycling_recommendation || 'Mechanical Recycling / Upcycling'}</strong></div>
           </div>
         </div>
 
         <div style="margin-bottom: 20px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 18px; border-radius: 10px; color: #064e3b;">
-          <div style="font-size: 12px; font-weight: bold; color: #065f46; margin-bottom: 12px; border-bottom: 1px solid #a7f3d0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">👷 4. Facility Operator Sorting Directives</div>
+          <div style="font-size: 12px; font-weight: bold; color: #065f46; margin-bottom: 12px; border-bottom: 1px solid #a7f3d0; padding-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">4. Facility Sorting & Handling Directives</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; color: #064e3b;">
-            <div style="font-size: 13px; color: #064e3b;"><span style="color: #047857;">📍 Target Sorting Bin:</span> <strong style="color: #064e3b;">${result.sorting_bin || 'Bin A-1: Upcycling Atelier'}</strong></div>
-            <div style="font-size: 13px; color: #064e3b;"><span style="color: #047857;">🛠️ Required Pre-Processing:</span> <strong style="color: #064e3b;">${result.preprocessing || 'Trim hardware & seams'}</strong></div>
-            <div style="font-size: 13px; color: #064e3b;"><span style="color: #047857;">⚠️ Handling Precaution:</span> <strong style="color: #064e3b;">${result.safety_warning || 'Safe (Standard PPE)'}</strong></div>
+            <div style="font-size: 13px; color: #064e3b;"><span style="color: #047857;">Target Sorting Bin:</span> <strong style="color: #064e3b;">${result.sorting_bin || 'Bin A-1: Upcycling Atelier'}</strong></div>
+            <div style="font-size: 13px; color: #064e3b;"><span style="color: #047857;">Required Pre-Processing:</span> <strong style="color: #064e3b;">${result.preprocessing || 'Standard Sorting & Inspection'}</strong></div>
+            <div style="font-size: 13px; color: #064e3b;"><span style="color: #047857;">Handling Precaution:</span> <strong style="color: #064e3b;">${result.safety_warning || 'Safe (Standard PPE)'}</strong></div>
           </div>
         </div>
 
         <div style="margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 15px; font-size: 11px; color: #64748b; text-align: center;">
-          Report Generated on ${new Date().toLocaleString()} • Textile Waste Intelligence Platform Engine (TIPS Compliant)
+          Report Generated on ${new Date().toLocaleString()} • Textile Waste Intelligence Platform
         </div>
       </div>
     `;
@@ -507,7 +733,171 @@ function App() {
         }
       });
     } else {
-      alert("Preparing PDF engine...");
+      alert("Preparing PDF report...");
+      if (document.body.contains(overlay)) {
+        document.body.removeChild(overlay);
+      }
+    }
+  };
+
+  // Real CSV Export Handler
+  const handleExportCSV = async (type = selectedReportType) => {
+    if (!batches || batches.length === 0) {
+      alert("No textile batches available in inventory to export.");
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/reports/export/csv?report_type=${type}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const text = await res.text();
+        const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `TexWaste_${type}_report_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (err) {
+      console.error("Error exporting CSV:", err);
+    }
+  };
+
+  // Real Excel (.xlsx) Export Handler
+  const handleExportExcel = async (type = selectedReportType) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/reports/export/excel?report_type=${type}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `TexWaste_${type}_report_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert("Failed to export Excel report.");
+      }
+    } catch (err) {
+      console.error("Error exporting Excel:", err);
+    }
+  };
+
+  // Real Full Sustainability Executive Summary PDF Generator
+  const handleExportSustainabilityReport = () => {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.left = '-9999px';
+    overlay.style.top = '0';
+    overlay.style.width = '800px';
+    overlay.style.background = '#ffffff';
+    overlay.style.color = '#0f172a';
+    overlay.style.padding = '35px';
+    overlay.style.fontFamily = 'Helvetica, Arial, sans-serif';
+    overlay.id = 'pdf-sustainability-container';
+
+    overlay.innerHTML = `
+      <div id="pdf-sustainability-content" style="background: #ffffff; color: #0f172a; padding: 20px; font-family: Helvetica, Arial, sans-serif;">
+        <div style="border-bottom: 3px solid #10b981; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; text-transform: uppercase;">TexWaste AI Platform</h1>
+            <p style="font-size: 13px; color: #10b981; font-weight: bold; margin: 4px 0 0 0;">CIRCULAR ECONOMY & ESG SUSTAINABILITY AUDIT REPORT</p>
+          </div>
+          <div style="text-align: right; font-size: 11px; color: #64748b;">
+            <div>Date: ${new Date().toLocaleDateString()}</div>
+            <div>Facility: Central Textile Recovery Hub</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px;">
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 11px; color: #166534; font-weight: 600;">TOTAL PROCESSED</div>
+            <div style="font-size: 18px; font-weight: 800; color: #15803d; margin-top: 4px;">${totalWeight} kg</div>
+          </div>
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 11px; color: #166534; font-weight: 600;">CO2 EMISSIONS OFFSET</div>
+            <div style="font-size: 18px; font-weight: 800; color: #15803d; margin-top: 4px;">${co2Saved} kg</div>
+          </div>
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 11px; color: #1e40af; font-weight: 600;">WATER CONSERVED</div>
+            <div style="font-size: 18px; font-weight: 800; color: #1d4ed8; margin-top: 4px;">${waterSaved} L</div>
+          </div>
+          <div style="background: #faf5ff; border: 1px solid #e9d5ff; padding: 12px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 11px; color: #6b21a8; font-weight: 600;">CIRCULARITY INDEX</div>
+            <div style="font-size: 18px; font-weight: 800; color: #7e22ce; margin-top: 4px;">${avgCircularity}%</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 14px; font-weight: 700; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; text-transform: uppercase;">
+            Registered Batch Inventory Ledger (${batches.length} Batches)
+          </h3>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; text-align: left;">
+                <th style="padding: 6px 8px;">ID</th>
+                <th style="padding: 6px 8px;">Material</th>
+                <th style="padding: 6px 8px;">Weight</th>
+                <th style="padding: 6px 8px;">Category</th>
+                <th style="padding: 6px 8px;">Recommended Strategy</th>
+                <th style="padding: 6px 8px;">Circularity</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${batches.map(b => `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 6px 8px; font-weight: bold;"># ${b.id}</td>
+                  <td style="padding: 6px 8px;">${b.fabric_type}</td>
+                  <td style="padding: 6px 8px;">${b.quantity} kg</td>
+                  <td style="padding: 6px 8px;">${b.waste_category || 'Recyclable'}</td>
+                  <td style="padding: 6px 8px;">${b.recycling_recommendation || 'Recovery'}</td>
+                  <td style="padding: 6px 8px; font-weight: bold; color: #10b981;">${b.circularity_score || 75.0}%</td>
+                </tr>
+              `).join('')}
+              ${batches.length === 0 ? `<tr><td colspan="6" style="padding: 12px; text-align: center; color: #64748b;">No batches registered in ledger yet.</td></tr>` : ''}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 10px; color: #64748b; text-align: center;">
+          Executive Sustainability Audit • TexWaste AI Platform • 5-Factor Circular Economy Assessment Framework
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    const pdfTarget = document.getElementById('pdf-sustainability-content');
+    const pdfFileName = `TexWaste_Sustainability_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+
+    if (window.html2pdf) {
+      const opt = {
+        margin:       0.3,
+        filename:     pdfFileName,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      window.html2pdf().set(opt).from(pdfTarget).save().then(() => {
+        if (document.body.contains(overlay)) {
+          document.body.removeChild(overlay);
+        }
+      }).catch((err) => {
+        console.error("PDF Export error:", err);
+        if (document.body.contains(overlay)) {
+          document.body.removeChild(overlay);
+        }
+      });
+    } else {
+      alert("PDF generator loading, please retry in a moment.");
       if (document.body.contains(overlay)) {
         document.body.removeChild(overlay);
       }
@@ -550,6 +940,7 @@ function App() {
         fetchBatches();
         fetchSustainabilityMetrics();
         fetchManufacturerAnalytics();
+        fetchNotifications();
       } else {
         setBatchError(data.detail || "Failed to save batch to inventory.");
       }
@@ -576,6 +967,7 @@ function App() {
         fetchBatches();
         fetchSustainabilityMetrics();
         fetchManufacturerAnalytics();
+        fetchNotifications();
       } else {
         alert("Permission denied or error deleting batch.");
       }
@@ -584,7 +976,7 @@ function App() {
     }
   };
 
-  // Live Weighted Score Calculations for Engine 9 Simulator
+  // Live Weighted Circularity Score Calculations
   const computedCircularity = (
     (0.35 * simRecyclability) +
     (0.20 * simCondition) +
@@ -642,10 +1034,7 @@ function App() {
   };
 
   const handleRoleChange = (newRole) => {
-    setRole(newRole);
-    if (user) {
-      setUser({ ...user, role: newRole });
-    }
+    handleUpdateRole(newRole);
   };
 
   return (
@@ -755,60 +1144,53 @@ function App() {
 
               {/* Floating Notifications Dropdown Menu */}
               {showNotifications && (
-                <div className="notifications-dropdown-menu glass" style={{
-                  position: 'absolute',
-                  top: '48px',
-                  right: '0',
-                  width: '320px',
-                  background: 'rgba(10, 15, 26, 0.94)',
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
-                  borderRadius: '16px',
-                  padding: '1rem',
-                  boxShadow: '0 30px 60px rgba(0, 0, 0, 0.85), 0 0 25px rgba(84, 214, 155, 0.18)',
-                  backdropFilter: 'blur(50px) saturate(200%)',
-                  WebkitBackdropFilter: 'blur(50px) saturate(200%)',
-                  zIndex: 1000
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      🔔 Notifications
+                <div className="notifications-dropdown-menu glass">
+                  <div className="notif-header">
+                    <div className="notif-title">
+                      Notifications
                       {unreadCount > 0 && (
-                        <span style={{ fontSize: '0.7rem', background: 'rgba(84, 214, 155, 0.2)', color: '#54D69B', padding: '2px 7px', borderRadius: '10px' }}>
+                        <span className="notif-count-badge">
                           {unreadCount} new
                         </span>
                       )}
                     </div>
                     {unreadCount > 0 && (
-                      <span 
-                        onClick={() => { setUnreadCount(0); setNotifications(prev => prev.map(n => ({ ...n, unread: false }))); }}
-                        style={{ fontSize: '0.75rem', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 500 }}
+                      <button 
+                        onClick={handleMarkAllNotificationsAsRead}
+                        className="notif-mark-all-btn"
                       >
-                        Mark read
-                      </span>
+                        Mark all as read
+                      </button>
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '280px', overflowY: 'auto' }}>
-                    {notifications.map(item => (
-                      <div 
-                        key={item.id} 
-                        style={{
-                          padding: '0.65rem',
-                          borderRadius: '10px',
-                          background: item.unread ? 'rgba(84, 214, 155, 0.08)' : 'rgba(255, 255, 255, 0.03)',
-                          border: item.unread ? '1px solid rgba(84, 214, 155, 0.2)' : '1px solid rgba(255, 255, 255, 0.05)',
-                          transition: 'background 0.2s ease'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                          <span style={{ fontWeight: 600, fontSize: '0.8rem', color: '#ffffff' }}>{item.title}</span>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{item.time}</span>
+                  <div className="notif-list">
+                    {notifications && notifications.length > 0 ? (
+                      notifications.map(item => (
+                        <div 
+                          key={item.id} 
+                          className={`notif-item ${item.unread ? 'unread' : ''}`}
+                          onClick={() => handleMarkNotificationAsRead(item.id)}
+                          title="Click to mark as read"
+                        >
+                          <div className="notif-meta-row">
+                            <span className={`notif-category-tag ${item.type || 'platform_announcement'} ${item.severity === 'urgent' ? 'urgent' : ''}`}>
+                              {item.category || 'Notification'}
+                            </span>
+                            <span className="notif-time">{item.time_ago || item.time || 'Recently'}</span>
+                          </div>
+                          <div className="notif-item-title">{item.title}</div>
+                          <p className="notif-item-msg">
+                            {item.message}
+                          </p>
                         </div>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0, lineHeight: '1.4' }}>
-                          {item.message}
-                        </p>
+                      ))
+                    ) : (
+                      <div className="notif-empty-state">
+                        No notifications at this time.<br />
+                        All facility batches and alerts are up to date.
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}
@@ -825,7 +1207,7 @@ function App() {
                 {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
               </div>
               <span className="profile-name">
-                {user.username.length > 10 ? user.username.substring(0, 9) + '...' : user.username}
+                {user.username}
               </span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: showProfileMenu ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', color: 'var(--text-muted)' }}>
                 <path d="M6 9l6 6 6-6" />
@@ -877,7 +1259,7 @@ function App() {
         <div>
           <section className="hero-section">
             <div className="hero-badge">
-              <span style={{ fontSize: '1.1rem' }}>🌱</span> Circular Fashion Intelligence
+              Circular Fashion Intelligence
             </div>
             <h1 className="hero-title">
               AI-Powered <span>Textile Waste</span> Intelligence Platform
@@ -942,7 +1324,7 @@ function App() {
         <div className="auth-wrapper">
           <div className="auth-card glass">
             <h2 className="auth-title">Welcome Back</h2>
-            <p className="auth-subtitle">Sign in to access your dashboard & AI engines</p>
+            <p className="auth-subtitle">Sign in to access your sustainability platform</p>
             {authError && <div className="alert-banner alert-error">{authError}</div>}
             {authSuccess && <div className="alert-banner alert-success">{authSuccess}</div>}
             <form onSubmit={handleLogin}>
@@ -1036,16 +1418,16 @@ function App() {
       {currentView === 'forgot-password' && (
         <div className="auth-wrapper">
           <div className="auth-card glass">
-            <h2 className="auth-title">Reset Password via OTP</h2>
+            <h2 className="auth-title">Reset Password</h2>
             <p className="auth-subtitle">
-              {otpStep === 1 
-                ? "Enter your registered email to receive a 6-digit reset OTP code"
-                : "Enter the OTP code sent to your email and set your new password"}
+              {otpStep === 1 && "Enter your registered email to receive a 6-digit reset OTP code"}
+              {otpStep === 2 && `Enter the 6-digit OTP code sent to ${email}`}
+              {otpStep === 3 && "OTP verified! Create your new account password"}
             </p>
             {authError && <div className="alert-banner alert-error">{authError}</div>}
             {authSuccess && <div className="alert-banner alert-success">{authSuccess}</div>}
 
-            {otpStep === 1 ? (
+            {otpStep === 1 && (
               <form onSubmit={handleSendOTP}>
                 <div className="form-group">
                   <label>Registered Email Address</label>
@@ -1055,54 +1437,126 @@ function App() {
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)} 
                     required 
-                    placeholder="Enter registered email" 
+                    placeholder="Enter registered email (e.g. user@gmail.com)" 
                   />
                 </div>
-                <button type="submit" className="btn btn-primary" style={{ marginTop: '1.2rem' }}>
-                  📩 Send OTP Verification Code
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={isOtpLoading}
+                  style={{ 
+                    marginTop: '1.2rem', 
+                    opacity: isOtpLoading ? 0.7 : 1, 
+                    cursor: isOtpLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.6rem'
+                  }}
+                >
+                  {isOtpLoading && <span style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />}
+                  <span>{isOtpLoading ? "Sending OTP..." : "Send OTP Verification Code"}</span>
                 </button>
               </form>
-            ) : (
-              <form onSubmit={handleVerifyOTPReset}>
+            )}
+
+            {otpStep === 2 && (
+              <form onSubmit={handleVerifyOTPOnly}>
                 <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label>6-Digit OTP Code</label>
-                    {demoOtpHint && (
-                      <span style={{ fontSize: '0.75rem', background: 'rgba(84, 214, 155, 0.2)', color: '#54d69b', padding: '2px 8px', borderRadius: '10px' }}>
-                        Demo OTP: {demoOtpHint}
-                      </span>
-                    )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                    <label style={{ margin: 0 }}>6-Digit OTP Code</label>
+                    <button 
+                      type="button" 
+                      onClick={handleSendOTP} 
+                      disabled={isOtpLoading}
+                      style={{ background: 'none', border: 'none', color: isOtpLoading ? 'var(--text-muted)' : 'var(--color-primary)', fontSize: '0.75rem', cursor: isOtpLoading ? 'not-allowed' : 'pointer', padding: 0, fontWeight: 600 }}
+                    >
+                      {isOtpLoading ? "Sending..." : "Resend Code"}
+                    </button>
                   </div>
                   <input 
                     type="text" 
+                    maxLength={6}
                     className="form-control" 
                     value={otpCode} 
-                    onChange={(e) => setOtpCode(e.target.value)} 
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} 
                     required 
-                    placeholder="Enter 6-digit OTP code" 
+                    placeholder="Enter 6-digit code" 
+                    style={{ letterSpacing: '4px', fontSize: '1.1rem', textAlign: 'center', fontWeight: 700 }}
                   />
                 </div>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={isOtpLoading}
+                  style={{ 
+                    marginTop: '1.2rem', 
+                    opacity: isOtpLoading ? 0.7 : 1, 
+                    cursor: isOtpLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.6rem'
+                  }}
+                >
+                  {isOtpLoading && <span style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />}
+                  <span>{isOtpLoading ? "Verifying OTP..." : "Verify OTP Code"}</span>
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => { setOtpStep(1); setAuthError(''); }} 
+                  disabled={isOtpLoading}
+                  className="btn btn-secondary" 
+                  style={{ marginTop: '0.6rem', width: '100%', fontSize: '0.85rem' }}
+                >
+                  Change Email Address
+                </button>
+              </form>
+            )}
+
+            {otpStep === 3 && (
+              <form onSubmit={handleVerifyOTPReset}>
+                <div style={{ background: 'rgba(84, 214, 155, 0.1)', border: '1px solid rgba(84, 214, 155, 0.3)', borderRadius: '10px', padding: '0.75rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#54d69b' }}>
+                  <span>✓</span>
+                  <span>Identity verified for <strong>{email}</strong></span>
+                </div>
                 <div className="form-group">
-                  <label>New Password</label>
+                  <label>Create New Password</label>
                   <input 
                     type="password" 
                     className="form-control" 
                     value={resetNewPassword} 
                     onChange={(e) => setResetNewPassword(e.target.value)} 
                     required 
-                    placeholder="Create new password" 
+                    minLength={4}
+                    placeholder="Enter new password (min 4 chars)" 
                   />
                 </div>
-                <button type="submit" className="btn btn-primary" style={{ marginTop: '1.2rem' }}>
-                  🔑 Verify OTP & Reset Password
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={isOtpLoading}
+                  style={{ 
+                    marginTop: '1.2rem', 
+                    opacity: isOtpLoading ? 0.7 : 1, 
+                    cursor: isOtpLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.6rem'
+                  }}
+                >
+                  {isOtpLoading && <span style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />}
+                  <span>{isOtpLoading ? "Updating Password..." : "Update Password & Log In"}</span>
                 </button>
                 <button 
                   type="button" 
-                  onClick={() => setOtpStep(1)} 
+                  onClick={() => { setOtpStep(2); setAuthError(''); }} 
+                  disabled={isOtpLoading}
                   className="btn btn-secondary" 
                   style={{ marginTop: '0.6rem', width: '100%', fontSize: '0.85rem' }}
                 >
-                  ← Change Email / Resend OTP
+                  Back to OTP Verification
                 </button>
               </form>
             )}
@@ -1114,57 +1568,65 @@ function App() {
         </div>
       )}
 
-      {/* 3. Executive Analytics Dashboard View (Role-Tailored - Section 10 Specification) */}
+      {/* Executive Analytics Dashboard View */}
       {currentView === 'dashboard' && user && (
         <div>
           <div className="dashboard-title-bar" style={{ marginBottom: '1.5rem' }}>
             <div>
               <h2 style={{ fontSize: '1.8rem' }}>Welcome, {user.username}</h2>
-              <p className="dashboard-subtitle-text">Active Role View: <strong style={{ color: 'var(--color-primary)' }}>{user.role}</strong></p>
+              <p className="dashboard-subtitle-text">Overview of your circular economy analytics and batch throughput.</p>
             </div>
             <button onClick={() => changeView('analysis')} className="btn btn-primary" style={{ width: 'auto' }}>
-              🔬 Run AI Image Analysis
+              Run Image Analysis
             </button>
           </div>
 
-          {/* Role-Based Dashboard 1: Sustainability Manager Dashboard (Engine 7 & 8) */}
+          {/* Role-Based Dashboard 1: Sustainability Manager Dashboard */}
           {user.role === 'Sustainability Manager' && (
             <div>
               <div className="stats-banner">
                 <div className="stat-card glass">
                   <div className="stat-label">Landfill Diversion Rate</div>
-                  <div className="stat-value" style={{ color: 'var(--color-primary)' }}>94.2%</div>
+                  <div className="stat-value" style={{ color: 'var(--color-primary)' }}>
+                    {esgMetrics && esgMetrics.total_batches > 0 ? `${esgMetrics.landfill_diversion_rate}%` : '0.0%'}
+                  </div>
                 </div>
                 <div className="stat-card glass blue">
                   <div className="stat-label">Total CO₂ Offsets</div>
-                  <div className="stat-value">{(totalWeight * 3.6).toFixed(1)} kg</div>
+                  <div className="stat-value">
+                    {esgMetrics && esgMetrics.total_batches > 0 ? `${esgMetrics.co2_saved_kg.toFixed(1)} kg` : '0.0 kg'}
+                  </div>
                 </div>
                 <div className="stat-card glass purple">
                   <div className="stat-label">Water Conserved</div>
-                  <div className="stat-value">{(totalWeight * 250).toFixed(0)} L</div>
+                  <div className="stat-value">
+                    {esgMetrics && esgMetrics.total_batches > 0 ? `${esgMetrics.water_saved_liters.toFixed(0)} L` : '0 L'}
+                  </div>
                 </div>
                 <div className="stat-card glass">
                   <div className="stat-label">Industry Benchmark</div>
                   <div className="stat-value" style={{ fontSize: '1.1rem', marginTop: '0.4rem', color: 'var(--color-secondary)' }}>
-                    +25.7% vs Baseline
+                    {esgMetrics && esgMetrics.total_batches > 0 && esgMetrics.industry_benchmark
+                      ? `${esgMetrics.industry_benchmark.delta >= 0 ? '+' : ''}${esgMetrics.industry_benchmark.delta}% vs Baseline`
+                      : 'Baseline: 68.5%'}
                   </div>
                 </div>
               </div>
 
-              {/* Milestone 3 Interactive Environmental Benchmark & XGBoost ML Visualizer */}
+              {/* Sustainability Benchmarking & Linear Projection Visualizer */}
               <div className="batch-card glass" style={{ marginBottom: '2rem', padding: '1.5rem' }}>
-                <h3 className="card-title">📊 Sustainability Benchmarking & Machine Learning Forecasting (Engine 7)</h3>
+                <h3 className="card-title">Sustainability Benchmarking & Throughput Projections</h3>
                 
-                {/* XGBoost Machine Learning Model Banner */}
+                {/* Linear Throughput Projection Banner */}
                 <div style={{ background: 'rgba(147, 51, 234, 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(147, 51, 234, 0.3)', marginBottom: '1.5rem' }}>
                   <div style={{ fontSize: '0.78rem', color: '#9333EA', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    🤖 XGBoost Regressor ML Model (Pandas + NumPy + XGBoost Pipeline)
+                    Material Throughput & Carbon Offset Projection
                   </div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fff', marginTop: '0.3rem' }}>
-                    Predicted Q3 Carbon Savings: <span style={{ color: 'var(--color-primary)' }}>{esgMetrics?.xgboost_predicted_trend ? esgMetrics.xgboost_predicted_trend.toFixed(1) : (totalWeight * 4.2).toFixed(1)} kg CO₂</span>
+                    Projected Platform Carbon Savings: <span style={{ color: 'var(--color-primary)' }}>{esgMetrics?.projected_carbon_savings ? esgMetrics.projected_carbon_savings.toFixed(1) : '0.0'} kg CO₂</span>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    Engineered using Pandas DataFrames and XGBoost regression modeling on material density & circularity scores.
+                    Calculated strictly from database registered batch throughput and material composition.
                   </div>
                 </div>
 
@@ -1172,10 +1634,12 @@ function App() {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
                       <span>Platform Waste Diversion Rate</span>
-                      <strong style={{ color: 'var(--color-primary)' }}>94.2%</strong>
+                      <strong style={{ color: 'var(--color-primary)' }}>
+                        {esgMetrics && esgMetrics.total_batches > 0 ? `${esgMetrics.landfill_diversion_rate}%` : '0.0%'}
+                      </strong>
                     </div>
                     <div style={{ background: 'rgba(255,255,255,0.05)', height: '14px', borderRadius: '7px', overflow: 'hidden' }}>
-                      <div style={{ width: '94.2%', height: '100%', background: 'linear-gradient(90deg, #54D69B, #00BCFF)', borderRadius: '7px' }}></div>
+                      <div style={{ width: esgMetrics && esgMetrics.total_batches > 0 ? `${Math.min(100, Math.max(0, esgMetrics.landfill_diversion_rate))}%` : '0%', height: '100%', background: 'linear-gradient(90deg, #54D69B, #00BCFF)', borderRadius: '7px' }}></div>
                     </div>
                   </div>
 
@@ -1193,11 +1657,11 @@ function App() {
 
               <div className="dashboard-grid" style={{ marginBottom: '2rem' }}>
                 <div className="batch-card glass">
-                  <h3 className="card-title">🌱 Carbon Offsets by Material Type (kg CO₂)</h3>
+                  <h3 className="card-title">Carbon Offsets by Material Type (kg CO₂)</h3>
                   <PieChart data={chartFabricData} />
                 </div>
                 <div className="batch-card glass">
-                  <h3 className="card-title">📊 Waste Diversion Share</h3>
+                  <h3 className="card-title">Waste Diversion Share</h3>
                   <PieChart data={chartCategoryData} />
                 </div>
               </div>
@@ -1210,24 +1674,32 @@ function App() {
               <div className="stats-banner">
                 <div className="stat-card glass">
                   <div className="stat-label">Production Offcuts Diverted</div>
-                  <div className="stat-value">{totalWeight > 0 ? (totalWeight * 0.85).toFixed(1) : '185.0'} kg</div>
+                  <div className="stat-value">
+                    {manufacturerData && manufacturerData.production_offcuts_kg > 0 ? `${manufacturerData.production_offcuts_kg.toFixed(1)} kg` : '0.0 kg'}
+                  </div>
                 </div>
                 <div className="stat-card glass blue">
                   <div className="stat-label">Material Cost Saved</div>
-                  <div className="stat-value">${totalWeight > 0 ? (totalWeight * 3.5).toFixed(2) : '647.50'}</div>
+                  <div className="stat-value">
+                    ${manufacturerData && manufacturerData.raw_material_cost_saved > 0 ? manufacturerData.raw_material_cost_saved.toFixed(2) : '0.00'}
+                  </div>
                 </div>
                 <div className="stat-card glass purple">
                   <div className="stat-label">Waste Reduction Rate</div>
-                  <div className="stat-value">88.4%</div>
+                  <div className="stat-value">
+                    {manufacturerData && manufacturerData.waste_reduction_rate > 0 ? `${manufacturerData.waste_reduction_rate.toFixed(1)}%` : '0.0%'}
+                  </div>
                 </div>
                 <div className="stat-card glass">
                   <div className="stat-label">Circularity Rating</div>
-                  <div className="stat-value" style={{ color: 'var(--color-primary)' }}>84.5%</div>
+                  <div className="stat-value" style={{ color: 'var(--color-primary)' }}>
+                    {manufacturerData && manufacturerData.circularity_rating > 0 ? `${manufacturerData.circularity_rating.toFixed(1)}%` : 'No data'}
+                  </div>
                 </div>
               </div>
 
               <div className="batch-card glass" style={{ marginBottom: '2rem' }}>
-                <h3 className="card-title">🏭 Recent Production Offcut Recoveries</h3>
+                <h3 className="card-title">Recent Production Offcut Recoveries</h3>
                 <div className="table-wrapper">
                   <table>
                     <thead>
@@ -1240,32 +1712,22 @@ function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {batches.slice(0, 5).map((b) => (
-                        <tr key={b.id}>
-                          <td><strong># {b.id}</strong></td>
-                          <td>{b.fabric_type}</td>
-                          <td>{b.quantity} kg</td>
-                          <td><span className="tag tag-new">{b.waste_category || 'Recyclable'}</span></td>
-                          <td><span className="tag tag-score high">{b.circularity_score}%</span></td>
+                      {manufacturerData && manufacturerData.recent_batches && manufacturerData.recent_batches.length > 0 ? (
+                        manufacturerData.recent_batches.map((b) => (
+                          <tr key={b.id}>
+                            <td><strong># {b.id}</strong></td>
+                            <td>{b.fabric_type}</td>
+                            <td>{b.quantity} kg</td>
+                            <td><span className="tag tag-new">{b.waste_category || 'Recyclable'}</span></td>
+                            <td><span className="tag tag-score high">{b.circularity_score}%</span></td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                            No production batches recorded yet.
+                          </td>
                         </tr>
-                      ))}
-                      {batches.length === 0 && (
-                        <>
-                          <tr>
-                            <td><strong># 101</strong></td>
-                            <td>Cotton Offcuts</td>
-                            <td>45.0 kg</td>
-                            <td><span className="tag tag-new">Upcyclable</span></td>
-                            <td><span className="tag tag-score high">92.0%</span></td>
-                          </tr>
-                          <tr>
-                            <td><strong># 102</strong></td>
-                            <td>Denim Selvage</td>
-                            <td>30.0 kg</td>
-                            <td><span className="tag tag-new">Recyclable</span></td>
-                            <td><span className="tag tag-score high">84.5%</span></td>
-                          </tr>
-                        </>
                       )}
                     </tbody>
                   </table>
@@ -1277,6 +1739,179 @@ function App() {
           {/* Role-Based Dashboard 3: Recycling Facility Operator / Standard Overview */}
           {(user.role === 'Recycling Facility Operator' || user.role === 'Administrator') && (
             <div>
+              {/* Admin User Management Directory */}
+              {user.role === 'Administrator' && (
+                <>
+                <div className="batch-card glass" style={{ marginBottom: '2rem', padding: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div>
+                      <h3 className="card-title">User Directory & Access Control</h3>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Registered platform accounts and workspace permissions.</p>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', background: 'rgba(84, 214, 155, 0.2)', color: '#54D69B', padding: '4px 12px', borderRadius: '15px', fontWeight: 600 }}>
+                      {allUsers.length} Total Users
+                    </span>
+                  </div>
+
+                  <div className="table-responsive">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>User ID</th>
+                          <th>Full Name / Identifier</th>
+                          <th>Email Address</th>
+                          <th>Organization</th>
+                          <th>Assigned Role</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allUsers.length > 0 ? (
+                          allUsers.map(u => (
+                            <tr key={u.id}>
+                              <td><strong>#{u.id}</strong></td>
+                              <td>{u.username}</td>
+                              <td>{u.email}</td>
+                              <td>{u.organization_name || 'N/A'}</td>
+                              <td><span className="tag tag-new">{u.role}</span></td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td><strong>#1</strong></td>
+                            <td>{user.username}</td>
+                            <td>{user.email || 'admin@textilewaste.ai'}</td>
+                            <td>TexWaste AI Global</td>
+                            <td><span className="tag tag-new">Administrator</span></td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Admin Platform Announcements Management */}
+                <div className="batch-card glass" style={{ marginBottom: '2rem', padding: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
+                    <div>
+                      <h3 className="card-title">Platform Announcements Manager</h3>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Publish broadcast notices and role-targeted notifications across the platform.</p>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', background: 'rgba(147, 51, 234, 0.2)', color: '#c084fc', padding: '4px 12px', borderRadius: '15px', fontWeight: 600 }}>
+                      {adminAnnouncements.length} Published
+                    </span>
+                  </div>
+
+                  {/* Announcement Form */}
+                  <form onSubmit={handleCreateAnnouncement} style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'block' }}>Notice Title</label>
+                        <input 
+                          type="text" 
+                          className="form-control" 
+                          placeholder="e.g. Scheduled System Upgrade" 
+                          value={announcementTitle}
+                          onChange={(e) => setAnnouncementTitle(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'block' }}>Target Audience</label>
+                        <select 
+                          className="form-control"
+                          value={announcementTargetRole}
+                          onChange={(e) => setAnnouncementTargetRole(e.target.value)}
+                        >
+                          <option value="ALL">All Platform Users (Global)</option>
+                          <option value="Recycling Facility Operator">Recycling Facility Operators Only</option>
+                          <option value="Sustainability Manager">Sustainability Managers Only</option>
+                          <option value="Textile Manufacturer">Textile Manufacturers Only</option>
+                          <option value="Administrator">Administrators Only</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'block' }}>Severity Level</label>
+                        <select 
+                          className="form-control"
+                          value={announcementSeverity}
+                          onChange={(e) => setAnnouncementSeverity(e.target.value)}
+                        >
+                          <option value="info">Info (Standard)</option>
+                          <option value="success">Success (Positive)</option>
+                          <option value="warning">Warning (Caution)</option>
+                          <option value="urgent">Urgent (High Priority)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'block' }}>Announcement Message</label>
+                      <textarea 
+                        className="form-control" 
+                        rows="2"
+                        placeholder="Enter broadcast message details..." 
+                        value={announcementMessage}
+                        onChange={(e) => setAnnouncementMessage(e.target.value)}
+                        style={{ width: '100%', resize: 'vertical' }}
+                      />
+                    </div>
+
+                    {announcementError && <div style={{ color: '#f87171', fontSize: '0.8rem', marginBottom: '0.8rem' }}>{announcementError}</div>}
+                    {announcementSuccess && <div style={{ color: '#54D69B', fontSize: '0.8rem', marginBottom: '0.8rem' }}>{announcementSuccess}</div>}
+
+                    <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '0.6rem 1.4rem' }}>
+                      Publish Announcement
+                    </button>
+                  </form>
+
+                  {/* Active Announcements Table */}
+                  <div className="table-responsive">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Title & Notice</th>
+                          <th>Target Audience</th>
+                          <th>Severity</th>
+                          <th>Published</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminAnnouncements.length > 0 ? (
+                          adminAnnouncements.map(a => (
+                            <tr key={a.id}>
+                              <td><strong>#{a.id}</strong></td>
+                              <td>
+                                <div style={{ fontWeight: 600, color: '#ffffff' }}>{a.title}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{a.message}</div>
+                              </td>
+                              <td><span className="tag tag-new">{a.target_role === 'ALL' ? 'Global (All)' : a.target_role}</span></td>
+                              <td><span className={`notif-category-tag ${a.severity}`}>{a.severity.toUpperCase()}</span></td>
+                              <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{new Date(a.created_at).toLocaleDateString()}</td>
+                              <td>
+                                <button 
+                                  onClick={() => handleDeleteAnnouncement(a.id)}
+                                  style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}
+                                >
+                                  Remove
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="6" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1.5rem' }}>
+                              No active platform announcements published. Use the form above to broadcast notices.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                </>
+              )}
+
               <div className="stats-banner">
                 <div className="stat-card glass">
                   <div className="stat-label">Total Batches Sorted</div>
@@ -1299,12 +1934,12 @@ function App() {
               {/* Interactive Pie Charts Grid */}
               <div className="dashboard-grid" style={{ marginBottom: '2rem' }}>
                 <div className="batch-card glass">
-                  <h3 className="card-title">🍩 Material Composition Breakdown</h3>
+                  <h3 className="card-title">Material Composition Breakdown</h3>
                   <PieChart data={chartFabricData} />
                 </div>
 
                 <div className="batch-card glass">
-                  <h3 className="card-title">🥧 Waste Category Share</h3>
+                  <h3 className="card-title">Waste Category Share</h3>
                   <PieChart data={chartCategoryData} />
                 </div>
               </div>
@@ -1313,20 +1948,20 @@ function App() {
         </div>
       )}
 
-      {/* 4. DEDICATED PAGE: AI Image Analysis Engine (Deep Diagnostic Results) */}
+      {/* AI Image Analysis & Diagnostics */}
       {currentView === 'analysis' && user && (
         <div>
           <div className="dashboard-title-bar" style={{ marginBottom: '1.5rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.8rem' }}>🔬 AI Computer Vision & Deep Visual Diagnostics</h2>
-              <p className="dashboard-subtitle-text">TIPS Dataset Pattern Engine, Color Lab Analysis, & Texture Discontinuity Inspection.</p>
+              <h2 style={{ fontSize: '1.8rem' }}>Textile Visual Analysis & Classification</h2>
+              <p className="dashboard-subtitle-text">Neural network fabric identification, color analysis, and physical integrity inspection.</p>
             </div>
           </div>
 
           <div style={{ maxWidth: '960px', margin: '0 auto' }}>
             <div className="batch-card glass" style={{ padding: '2rem' }}>
               <h3 className="card-title" style={{ fontSize: '1.2rem', marginBottom: '1.5rem' }}>
-                {analyzedResult ? "🔬 AI Textile Material Diagnostic Report" : "Step 1: Upload Fabric Image for AI Inspection"}
+                {analyzedResult ? "Textile Material Diagnostic Report" : "Upload Fabric Image for Inspection"}
               </h3>
               
               {batchError && <div className="alert-banner alert-error">{batchError}</div>}
@@ -1335,7 +1970,7 @@ function App() {
               {!analyzedResult ? (
                 <form onSubmit={handleAnalyzeImage}>
                   <div className="form-group">
-                    <label style={{ fontSize: '1rem', fontWeight: 600 }}>Select Textile Photo (TIPS Specification)</label>
+                    <label style={{ fontSize: '1rem', fontWeight: 600 }}>Select Textile Photo</label>
                     <input 
                       type="file" 
                       accept="image/*"
@@ -1346,7 +1981,7 @@ function App() {
                     />
                   </div>
                   <button type="submit" className="btn btn-primary" style={{ marginTop: '1.2rem', padding: '0.8rem 1.8rem', fontSize: '1rem' }} disabled={isAnalyzing}>
-                    {isAnalyzing ? "⚡ Running Neural Vision & Computer Vision Models..." : "🔍 Run AI Deep Analysis"}
+                    {isAnalyzing ? "Running Visual Analysis & Classification Models..." : "Run Material Analysis"}
                   </button>
                 </form>
               ) : (
@@ -1359,13 +1994,18 @@ function App() {
                         style={{ width: '110px', height: '110px', borderRadius: '14px', objectFit: 'cover', border: '2px solid var(--color-primary)', boxShadow: '0 8px 24px rgba(84, 214, 155, 0.2)' }}
                       />
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.4rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '0.8rem', background: 'rgba(84, 214, 155, 0.15)', color: 'var(--color-primary)', padding: '0.3rem 0.8rem', borderRadius: '20px', fontWeight: 'bold', border: '1px solid rgba(84, 214, 155, 0.3)' }}>
-                            MODEL CONFIDENCE: {analyzedResult.confidence_score || '96.4'}%
+                            CONFIDENCE: {analyzedResult.confidence_score}%
                           </span>
                           <span className="tag tag-new" style={{ fontSize: '0.8rem' }}>
                             {analyzedResult.waste_category || 'Recyclable'}
                           </span>
+                          {analyzedResult.model_metadata?.model_architecture && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.06)', padding: '0.2rem 0.6rem', borderRadius: '12px' }}>
+                              {analyzedResult.model_metadata.model_architecture} (Test Accuracy: {analyzedResult.model_metadata.test_accuracy}%)
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#fff', lineHeight: 1.2 }}>{analyzedResult.fabric_type}</div>
                         <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
@@ -1374,14 +2014,31 @@ function App() {
                       </div>
                     </div>
 
+                    {/* Top-3 Model Softmax Probability Distribution */}
+                    {analyzedResult.top_predictions && analyzedResult.top_predictions.length > 0 && (
+                      <div style={{ marginBottom: '1.2rem', background: 'rgba(0,0,0,0.3)', padding: '0.9rem 1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem', fontWeight: 600 }}>
+                          Classification Probability Distribution
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                          {analyzedResult.top_predictions.slice(0, 3).map((p, idx) => (
+                            <div key={idx} style={{ flex: 1, minWidth: '130px', background: 'rgba(255,255,255,0.04)', padding: '0.5rem 0.8rem', borderRadius: '8px', borderLeft: idx === 0 ? '3px solid var(--color-primary)' : '3px solid rgba(255,255,255,0.2)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                <span style={{ fontWeight: 600, color: idx === 0 ? 'var(--color-primary)' : '#fff' }}>{p.class_name}</span>
+                                <span style={{ color: 'var(--text-muted)' }}>{p.probability_pct}%</span>
+                              </div>
+                              <div style={{ background: 'rgba(255,255,255,0.1)', height: '4px', borderRadius: '2px', marginTop: '0.3rem', overflow: 'hidden' }}>
+                                <div style={{ background: idx === 0 ? 'var(--color-primary)' : 'var(--color-secondary)', width: `${p.probability_pct}%`, height: '100%' }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.88rem' }}>
                       <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Estimated Composition:</span>
-                        <div style={{ fontWeight: 'bold', color: 'var(--color-primary)', marginTop: '0.2rem', fontSize: '0.95rem' }}>{analyzedResult.estimated_composition || '95% Fiber Blend'}</div>
-                      </div>
-
-                      <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Blend Identification:</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Blend Composition:</span>
                         <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.2rem' }}>{analyzedResult.blend_identification || 'Single-Origin Natural Fiber'}</div>
                       </div>
 
@@ -1391,7 +2048,7 @@ function App() {
                       </div>
 
                       <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Thread Density (TPI):</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Thread Density:</span>
                         <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.2rem' }}>{analyzedResult.thread_density || 'Medium Density (~ 180 TPI)'}</div>
                       </div>
 
@@ -1401,7 +2058,7 @@ function App() {
                       </div>
 
                       <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Dye Fastness & Tone:</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Dye Fastness:</span>
                         <div style={{ fontWeight: 'bold', color: 'var(--color-secondary)', marginTop: '0.2rem' }}>{analyzedResult.dye_fastness || 'Vibrant / Unfaded'}</div>
                       </div>
 
@@ -1413,33 +2070,33 @@ function App() {
                       <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Contamination Risk:</span>
                         <div style={{ fontWeight: 'bold', color: analyzedResult.contamination_detected ? 'var(--danger)' : 'var(--color-secondary)', marginTop: '0.2rem' }}>
-                          {analyzedResult.stain_risk}% ({analyzedResult.contamination_detected ? 'Stain Spot Detected' : 'Clean Fabric'})
+                          {analyzedResult.stain_risk}% ({analyzedResult.contamination_detected ? 'Surface Dispersion Detected' : 'Clean Fabric'})
                         </div>
                       </div>
                     </div>
 
-                    {/* Milestone 3 Environmental & Sustainability Impact Assessment Panel */}
+                    {/* Sustainability Impact Assessment Panel */}
                     <div style={{ marginTop: '1.5rem', background: 'rgba(0, 188, 255, 0.08)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(0, 188, 255, 0.25)' }}>
                       <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#00BCFF', marginBottom: '0.8rem', letterSpacing: '0.5px' }}>
-                        🌱 MILESTONE 3: SUSTAINABILITY & ENVIRONMENTAL IMPACT ASSESSMENT
+                        SUSTAINABILITY & ENVIRONMENTAL IMPACT ASSESSMENT
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.88rem' }}>
                         <div>
-                          <span style={{ color: 'var(--text-muted)' }}>♻️ Circularity Rating Score:</span>
+                          <span style={{ color: 'var(--text-muted)' }}>Circularity Rating Score:</span>
                           <div style={{ fontWeight: 'bold', color: 'var(--color-primary)', marginTop: '0.25rem', fontSize: '1.1rem' }}>
-                            {analyzedResult.circularity_score || 88.5}% (High Recovery Potential)
+                            {analyzedResult.circularity_score || 85.8}%
                           </div>
                         </div>
                         <div>
-                          <span style={{ color: 'var(--text-muted)' }}>🌱 Unit CO₂ Offset Factor:</span>
-                          <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.25rem' }}>3.6 kg CO₂ saved / kg diverted</div>
+                          <span style={{ color: 'var(--text-muted)' }}>Unit CO2 Offset Factor:</span>
+                          <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.25rem' }}>3.6 kg CO2 saved / kg diverted</div>
                         </div>
                         <div>
-                          <span style={{ color: 'var(--text-muted)' }}>💧 Unit Water Conservation:</span>
+                          <span style={{ color: 'var(--text-muted)' }}>Unit Water Conservation:</span>
                           <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.25rem' }}>250 Liters saved / kg diverted</div>
                         </div>
                         <div>
-                          <span style={{ color: 'var(--text-muted)' }}>⚙️ Optimal Recovery Strategy:</span>
+                          <span style={{ color: 'var(--text-muted)' }}>Optimal Recovery Strategy:</span>
                           <div style={{ fontWeight: 'bold', color: 'var(--color-secondary)', marginTop: '0.25rem' }}>
                             {analyzedResult.recycling_recommendation || 'Mechanical Recycling / Upcycling'}
                           </div>
@@ -1450,20 +2107,20 @@ function App() {
                     {/* Facility Operator Directives Banner */}
                     <div style={{ marginTop: '1.5rem', background: 'rgba(84, 214, 155, 0.06)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(84, 214, 155, 0.25)' }}>
                       <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--color-primary)', marginBottom: '0.8rem', letterSpacing: '0.5px' }}>
-                        👷 FACILITY OPERATOR RECOVERY DIRECTIVES
+                        FACILITY SORTING & HANDLING DIRECTIVES
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', fontSize: '0.88rem' }}>
                         <div>
-                          <span style={{ color: 'var(--text-muted)' }}>📍 Target Sorting Bin:</span>
+                          <span style={{ color: 'var(--text-muted)' }}>Target Sorting Bin:</span>
                           <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.25rem' }}>{analyzedResult.sorting_bin || 'Bin A-1: Upcycling Atelier'}</div>
                         </div>
                         <div>
-                          <span style={{ color: 'var(--text-muted)' }}>🛠️ Required Pre-Processing:</span>
-                          <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.25rem' }}>{analyzedResult.preprocessing || 'Cut seams & trim hardware'}</div>
+                          <span style={{ color: 'var(--text-muted)' }}>Required Pre-Processing:</span>
+                          <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.25rem' }}>{analyzedResult.preprocessing || 'Standard Sorting & Inspection'}</div>
                         </div>
                         <div>
-                          <span style={{ color: 'var(--text-muted)' }}>⚠️ Handling Safety Warning:</span>
-                          <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.25rem' }}>{analyzedResult.safety_warning || '🟢 Safe (Standard PPE)'}</div>
+                          <span style={{ color: 'var(--text-muted)' }}>Safety & PPE Protocol:</span>
+                          <div style={{ fontWeight: 'bold', color: 'var(--color-primary)', marginTop: '0.25rem' }}>{analyzedResult.safety_warning || 'Safe (Standard PPE)'}</div>
                         </div>
                       </div>
                     </div>
@@ -1506,7 +2163,7 @@ function App() {
                     </div>
 
                     <div className="form-group">
-                      <label>📅 Collection Date</label>
+                      <label>Collection Date</label>
                       <input 
                         type="date" 
                         className="form-control" 
@@ -1520,10 +2177,10 @@ function App() {
 
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                     <button type="submit" className="btn btn-primary" style={{ padding: '0.75rem 1.6rem' }}>
-                      📥 Commit Batch to Inventory
+                      Commit Batch to Inventory
                     </button>
                     <button type="button" onClick={() => handleDownloadPDF(analyzedResult)} className="btn btn-secondary" style={{ width: 'auto', padding: '0.75rem 1.4rem' }}>
-                      📄 Export PDF Report
+                      Export PDF Report
                     </button>
                     <button type="button" onClick={handleResetAnalysis} className="btn btn-secondary" style={{ width: 'auto', padding: '0.75rem 1.4rem' }}>
                       Reset / New Image
@@ -1536,16 +2193,16 @@ function App() {
         </div>
       )}
 
-      {/* 5. DEDICATED PAGE: Waste Inventory Management */}
+      {/* Waste Inventory Management */}
       {currentView === 'inventory' && user && (
         <div>
           <div className="dashboard-title-bar" style={{ marginBottom: '1.5rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.8rem' }}>📦 Waste Inventory Management</h2>
+              <h2 style={{ fontSize: '1.8rem' }}>Waste Inventory Management</h2>
               <p className="dashboard-subtitle-text">View and manage all registered textile waste batches.</p>
             </div>
             <button onClick={() => changeView('analysis')} className="btn btn-primary" style={{ width: 'auto' }}>
-              ➕ Register New Batch
+              Register New Batch
             </button>
           </div>
 
@@ -1594,7 +2251,7 @@ function App() {
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{b.recycling_recommendation}</div>
                           <small style={{ color: 'var(--color-primary)', fontSize: '0.75rem' }}>{b.recovery_category}</small>
                         </td>
-                        <td><small style={{ color: '#fff' }}>📅 {b.collection_date ? b.collection_date.split('T')[0] : 'Today'}</small></td>
+                        <td><small style={{ color: '#fff' }}>{b.collection_date ? b.collection_date.split('T')[0] : 'Today'}</small></td>
                         <td>{b.quantity} kg</td>
                         <td><span className={`tag tag-score ${b.circularity_score >= 70 ? 'high' : ''}`}>{b.circularity_score}%</span></td>
                         {user.role === 'Administrator' && (
@@ -1614,65 +2271,141 @@ function App() {
         </div>
       )}
 
-      {/* 6. DEDICATED PAGE: Material Classification Engine */}
+      {/* Material Classification Page */}
       {currentView === 'classification' && user && (
         <div>
           <div className="dashboard-title-bar" style={{ marginBottom: '1.5rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.8rem' }}>🏷️ Material Classification & Categories</h2>
-              <p className="dashboard-subtitle-text">TIPS Dataset Supported Materials & Waste Classification Specs.</p>
+              <h2 style={{ fontSize: '1.8rem' }}>Material Classification</h2>
+              <p className="dashboard-subtitle-text">Supported textile materials and their recovery pathways.</p>
             </div>
           </div>
 
           <div className="dashboard-grid">
             <div className="batch-card glass">
-              <h3 className="card-title">Supported Materials (TIPS Specification)</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>🌱 <strong>Cotton</strong> (Natural)</div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>👖 <strong>Denim</strong> (Natural/Cotton)</div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>🐑 <strong>Wool</strong> (Animal Protein)</div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>✨ <strong>Silk</strong> (Animal Protein)</div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>🌾 <strong>Linen</strong> (Plant Fiber)</div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>🧪 <strong>Polyester</strong> (Synthetic)</div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>🧵 <strong>Nylon</strong> (Synthetic)</div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>🎨 <strong>Rayon</strong> (Semi-Synthetic)</div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>🧶 <strong>Acrylic</strong> (Synthetic)</div>
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>🔀 <strong>Mixed Fabrics</strong> (Blends)</div>
+              <h3 className="card-title">Supported Materials</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--color-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>
+                    Natural Fibers
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Cotton</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Plant Cellulose</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Denim</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Woven Twill Cotton</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Wool</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Animal Protein</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Silk</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Animal Protein</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Linen</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Flax Bast Fiber</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--color-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>
+                    Synthetic Fibers
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Polyester</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Synthetic Polymer</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Nylon</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Polyamide Synthetic</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Acrylic</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Polyacrylonitrile</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.78rem', color: '#F59E0B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>
+                    Regenerated & Blended Fibers
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Rayon (Viscose)</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Regenerated Cellulose</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <strong>Mixed Fabrics</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Multi-Fiber Blends</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div className="batch-card glass">
-              <h3 className="card-title">Waste Categories Breakdown</h3>
-              <div style={{ lineHeight: '1.8', fontSize: '0.9rem' }}>
-                <p><span className="tag tag-new">Recyclable</span> High fiber composition suitable for mechanical/chemical reprocessing.</p>
-                <p style={{ marginTop: '0.6rem' }}><span className="tag tag-good">Upcyclable</span> High quality scraps optimal for direct fabric reuse and design.</p>
-                <p style={{ marginTop: '0.6rem' }}><span className="tag tag-fair">Repairable</span> Moderately worn fabrics suitable for shredding into insulation.</p>
-                <p style={{ marginTop: '0.6rem' }}><span className="tag tag-poor">Hazardous</span> Soiled or chemically contaminated items requiring treatment.</p>
+              <h3 className="card-title">Recovery Categories</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--color-primary)' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--color-primary)', fontSize: '0.95rem' }}>RECYCLABLE</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                    Suitable for material recovery through mechanical or chemical processing.
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid var(--color-secondary)' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--color-secondary)', fontSize: '0.95rem' }}>UPCYCLABLE</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                    Suitable for direct reuse or conversion into higher-value products.
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid #F59E0B' }}>
+                  <div style={{ fontWeight: 700, color: '#F59E0B', fontSize: '0.95rem' }}>REPAIRABLE</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                    Suitable for repair, refurbishment, or secondary use.
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px', borderLeft: '4px solid #EF4444' }}>
+                  <div style={{ fontWeight: 700, color: '#EF4444', fontSize: '0.95rem' }}>HAZARDOUS</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                    Contaminated material requiring controlled handling or treatment.
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* 7. DEDICATED PAGE: Milestone 3 Interactive Sustainability Intelligence & Scoring Engine */}
+      {/* Sustainability & Circularity Page */}
       {currentView === 'recommendations' && user && (
         <div>
           <div className="dashboard-title-bar" style={{ marginBottom: '1.5rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.8rem' }}>♻️ Milestone 3: Interactive Sustainability & Scoring Engines</h2>
-              <p className="dashboard-subtitle-text">Interactive 5-Factor Score Simulator & Environmental Impact Calculator.</p>
+              <h2 style={{ fontSize: '1.8rem' }}>Sustainability & Circularity</h2>
+              <p className="dashboard-subtitle-text">Evaluate material recovery potential and environmental impact.</p>
             </div>
           </div>
 
-          {/* MILESTONE 3 INTERACTIVE ENGINE 9 SIMULATOR */}
+          {/* Circularity Score Section */}
           <div className="batch-card glass" style={{ marginBottom: '2rem', padding: '1.8rem', border: '1px solid rgba(84, 214, 155, 0.4)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem' }}>
               <div>
                 <h3 className="card-title" style={{ fontSize: '1.2rem', color: '#fff', margin: 0 }}>
-                  🧮 Engine 9: Interactive 5-Factor Circularity Score Simulator
+                  Circularity Score
                 </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                  Formula: (0.35 × Recyclability) + (0.20 × Condition) + (0.20 × Reuse) + (0.15 × Env Benefit) + (0.10 × Feasibility)
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                  Assess the recovery potential of a textile batch using material, condition, reuse, environmental, and processing factors.
                 </p>
               </div>
 
@@ -1689,7 +2422,7 @@ function App() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.2rem', margin: '1.5rem 0' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
-                  <span style={{ color: 'var(--color-primary)' }}>1. Material Recyclability (35%)</span>
+                  <span style={{ color: 'var(--color-primary)' }}>Material Recyclability (35%)</span>
                   <strong>{simRecyclability}%</strong>
                 </div>
                 <input type="range" min="0" max="100" value={simRecyclability} onChange={(e) => setSimRecyclability(parseFloat(e.target.value))} style={{ width: '100%', accentColor: 'var(--color-primary)' }} />
@@ -1697,7 +2430,7 @@ function App() {
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
-                  <span style={{ color: '#00BCFF' }}>2. Material Condition (20%)</span>
+                  <span style={{ color: '#00BCFF' }}>Material Condition (20%)</span>
                   <strong>{simCondition}%</strong>
                 </div>
                 <input type="range" min="0" max="100" value={simCondition} onChange={(e) => setSimCondition(parseFloat(e.target.value))} style={{ width: '100%', accentColor: '#00BCFF' }} />
@@ -1705,7 +2438,7 @@ function App() {
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
-                  <span style={{ color: '#9333EA' }}>3. Reuse Potential (20%)</span>
+                  <span style={{ color: '#9333EA' }}>Reuse Potential (20%)</span>
                   <strong>{simReuse}%</strong>
                 </div>
                 <input type="range" min="0" max="100" value={simReuse} onChange={(e) => setSimReuse(parseFloat(e.target.value))} style={{ width: '100%', accentColor: '#9333EA' }} />
@@ -1713,7 +2446,7 @@ function App() {
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
-                  <span style={{ color: '#F59E0B' }}>4. Env Benefit (15%)</span>
+                  <span style={{ color: '#F59E0B' }}>Environmental Benefit (15%)</span>
                   <strong>{simEnvBenefit}%</strong>
                 </div>
                 <input type="range" min="0" max="100" value={simEnvBenefit} onChange={(e) => setSimEnvBenefit(parseFloat(e.target.value))} style={{ width: '100%', accentColor: '#F59E0B' }} />
@@ -1721,7 +2454,7 @@ function App() {
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
-                  <span style={{ color: '#EF4444' }}>5. Processing Feasibility (10%)</span>
+                  <span style={{ color: '#EF4444' }}>Processing Feasibility (10%)</span>
                   <strong>{simFeasibility}%</strong>
                 </div>
                 <input type="range" min="0" max="100" value={simFeasibility} onChange={(e) => setSimFeasibility(parseFloat(e.target.value))} style={{ width: '100%', accentColor: '#EF4444' }} />
@@ -1729,14 +2462,17 @@ function App() {
             </div>
           </div>
 
-          {/* MILESTONE 3 INTERACTIVE ENGINE 7 & 8 IMPACT CALCULATOR */}
+          {/* Environmental Impact Calculator */}
           <div className="batch-card glass" style={{ marginBottom: '2rem', padding: '1.8rem', border: '1px solid rgba(0, 188, 255, 0.4)' }}>
-            <h3 className="card-title" style={{ fontSize: '1.2rem', color: '#fff', marginBottom: '1rem' }}>
-              ⚡ Engine 7 & 8: Interactive Environmental Impact Calculator
+            <h3 className="card-title" style={{ fontSize: '1.2rem', color: '#fff', marginBottom: '0.3rem' }}>
+              Environmental Impact
             </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
+              Estimate the environmental benefits associated with diverting textile waste from disposal.
+            </p>
             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: '220px' }}>
-                <label style={{ fontSize: '0.88rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>Enter Waste Batch Weight (kg):</label>
+                <label style={{ fontSize: '0.88rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>Batch Weight (kg):</label>
                 <input 
                   type="number" 
                   className="form-control" 
@@ -1749,7 +2485,7 @@ function App() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div style={{ background: 'rgba(84, 214, 155, 0.1)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(84, 214, 155, 0.3)' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>CO₂ Emissions Offset</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>CO₂ Avoided</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--color-primary)', marginTop: '0.2rem' }}>{(calcWeight * 3.6).toFixed(1)} kg CO₂</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>≈ {((calcWeight * 3.6) / 20).toFixed(1)} trees planted equivalent</div>
               </div>
@@ -1768,87 +2504,229 @@ function App() {
             </div>
           </div>
 
-          {/* Section 9 PDF Circularity Categories Card */}
+          {/* Circularity Rating Breakdown Card */}
           <div className="batch-card glass" style={{ marginBottom: '2rem' }}>
-            <h3 className="card-title">🏷️ Official Circularity Classification Categories</h3>
+            <h3 className="card-title">Circularity Rating</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.88rem' }}>
               <div style={{ background: 'rgba(84, 214, 155, 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(84, 214, 155, 0.3)' }}>
-                <span className="tag tag-score high">Score ≥ 85%</span>
+                <span className="tag tag-score high">85–100</span>
                 <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.5rem' }}>Excellent Recovery Potential</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Optimal for premium upcycling & direct garment reuse</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Optimal for premium upcycling & direct reuse</div>
               </div>
 
               <div style={{ background: 'rgba(0, 188, 255, 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(0, 188, 255, 0.3)' }}>
-                <span className="tag tag-new">Score 70% – 84%</span>
+                <span className="tag tag-new">70–84</span>
                 <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.5rem' }}>High Recovery Potential</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Suitable for mechanical spinning & yarn recovery</div>
               </div>
 
               <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                <span className="tag tag-fair">Score 50% – 69%</span>
+                <span className="tag tag-fair">50–69</span>
                 <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.5rem' }}>Moderate Recovery Potential</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Chemical depolymerization or non-woven shredding</div>
               </div>
 
               <div style={{ background: 'rgba(147, 51, 234, 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(147, 51, 234, 0.3)' }}>
-                <span className="tag tag-poor">Score 30% – 49%</span>
+                <span className="tag tag-poor">30–49</span>
                 <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.5rem' }}>Limited Recovery Potential</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Industrial rag cutting or insulation padding</div>
               </div>
 
               <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                <span className="tag tag-danger" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>Score &lt; 30%</span>
-                <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.5rem' }}>Disposal Recommended</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Soiled/contaminated items requiring treatment</div>
+                <span className="tag tag-danger" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>Below 30</span>
+                <div style={{ fontWeight: 'bold', color: '#fff', marginTop: '0.5rem' }}>Low Recovery Potential</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Soiled or contaminated items requiring treatment</div>
               </div>
             </div>
           </div>
 
+          {/* Recovery Pathways Section */}
           <div className="features-grid">
             <div className="feature-card glass">
-              <h3>⚙️ Mechanical Recycling</h3>
-              <p>Best for 100% natural fibers (Cotton, Wool, Denim). Fabrics are shredded into raw fiber to spin new yarn.</p>
+              <h3>Mechanical Recycling</h3>
+              <p>Fiber recovery through shredding and mechanical processing for natural fibers (Cotton, Wool, Denim).</p>
             </div>
             <div className="feature-card glass">
-              <h3>🧪 Chemical Recycling</h3>
-              <p>Best for synthetic polymers (Polyester, Nylon). Chemical depolymerization recovers pure polyester chips.</p>
+              <h3>Chemical Recycling</h3>
+              <p>Material recovery through appropriate chemical depolymerization pathways for synthetic polymers (Polyester, Nylon).</p>
             </div>
             <div className="feature-card glass">
-              <h3>✂️ Upcycling & Fabric Reuse</h3>
-              <p>Best for deadstock and clean production offcuts. Repurposed directly into new fashion garments.</p>
+              <h3>Upcycling & Reuse</h3>
+              <p>Direct conversion of suitable deadstock and clean production offcuts into new textile products.</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* 8. DEDICATED PAGE: Reports & Environmental Impact Assessment */}
+      {/* Reports Page */}
       {currentView === 'reports' && user && (
         <div>
           <div className="dashboard-title-bar" style={{ marginBottom: '1.5rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.8rem' }}>📄 Reports & ESG Environmental Impact</h2>
-              <p className="dashboard-subtitle-text">Section 8 & 12 Circular Economy Reports, Carbon Footprint & Landfill Diversion Export.</p>
+              <h2 style={{ fontSize: '1.8rem' }}>Reports & Environmental Impact</h2>
+              <p className="dashboard-subtitle-text">Circular economy reports, carbon footprint assessment, and inventory data exports.</p>
             </div>
-            <div style={{ display: 'flex', gap: '0.8rem' }}>
-              <button onClick={() => alert("Exporting Waste Classification & ESG Metrics as CSV...")} className="btn btn-primary" style={{ width: 'auto' }}>
-                📊 Export Excel/CSV
+            <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <button onClick={() => handleExportExcel(selectedReportType)} className="btn btn-primary" style={{ width: 'auto' }}>
+                Export Excel (.xlsx)
               </button>
-              <button onClick={() => alert("Generating Official ESG Environmental Impact Summary...")} className="btn btn-secondary" style={{ width: 'auto' }}>
-                🖨️ Export PDF
+              <button onClick={() => handleExportCSV(selectedReportType)} className="btn btn-secondary" style={{ width: 'auto' }}>
+                Export CSV
+              </button>
+              <button onClick={handleExportSustainabilityReport} className="btn btn-secondary" style={{ width: 'auto' }}>
+                Export PDF Report
               </button>
             </div>
           </div>
 
-          <div className="batch-card glass">
-            <h3 className="card-title">ESG Sustainability Executive Summary</h3>
-            <div style={{ lineHeight: '2' }}>
-              <p>📅 <strong>Reporting Milestone:</strong> Milestone 3 — Sustainability Intelligence & Impact</p>
-              <p>📦 <strong>Total Logged Batches:</strong> {batches.length} Batches</p>
-              <p>⚖️ <strong>Total Weight Recovered:</strong> {totalWeight} kg</p>
-              <p>🌱 <strong>Carbon Footprint Offset:</strong> {co2Saved} kg CO₂</p>
-              <p>💧 <strong>Water Conserved:</strong> {waterSaved} Liters</p>
-              <p>♻️ <strong>Average Circularity Index:</strong> {avgCircularity}% Rating</p>
+          {/* 5 Report Type Selector Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.8rem' }}>
+            {[
+              { id: 'sustainability', title: 'Sustainability & ESG', desc: 'Carbon offset metrics, water conservation, and global industry diversion benchmarks.' },
+              { id: 'waste_classification', title: 'Waste Classification', desc: 'Material composition distribution, confidence ratings, and physical diagnostics.' },
+              { id: 'recycling', title: 'Recycling & Recovery', desc: 'Mechanical and chemical pathways, sorting bin allocations, and reuse potential.' },
+              { id: 'environmental_impact', title: 'Environmental Impact', desc: 'Landfill space avoided, feedstock market valuations, and resource protection.' },
+              { id: 'circular_economy', title: 'Circular Economy', desc: '5-factor circularity scores, material recovery grades, and supply loop index.' },
+            ].map(rpt => (
+              <div 
+                key={rpt.id}
+                onClick={() => setSelectedReportType(rpt.id)}
+                className={`stat-card glass ${selectedReportType === rpt.id ? 'blue' : ''}`}
+                style={{ 
+                  cursor: 'pointer',
+                  border: selectedReportType === rpt.id ? '1px solid var(--color-primary)' : '1px solid rgba(255,255,255,0.08)',
+                  background: selectedReportType === rpt.id ? 'rgba(84, 214, 155, 0.08)' : 'rgba(255,255,255,0.02)',
+                  transition: 'all 0.2s ease',
+                  padding: '1rem'
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: selectedReportType === rpt.id ? 'var(--color-primary)' : '#ffffff', marginBottom: '0.3rem' }}>
+                  {rpt.title}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                  {rpt.desc}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Active Report Dynamic Summary Card */}
+          <div className="batch-card glass" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
+              <div>
+                <h3 className="card-title">
+                  {selectedReportType === 'sustainability' && 'Sustainability & ESG Audit Summary'}
+                  {selectedReportType === 'waste_classification' && 'Waste Material Classification Summary'}
+                  {selectedReportType === 'recycling' && 'Recycling & Material Recovery Summary'}
+                  {selectedReportType === 'environmental_impact' && 'Environmental Impact Assessment Summary'}
+                  {selectedReportType === 'circular_economy' && 'Circular Economy Analytics Summary'}
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Certified audit ledger generated for the active operational period.
+                </p>
+              </div>
+              <span className="tag tag-new">Active Cycle</span>
             </div>
+
+            <div className="stats-banner" style={{ marginBottom: '1.5rem' }}>
+              <div className="stat-card glass">
+                <div className="stat-label">Total Logged Batches</div>
+                <div className="stat-value">{batches.length}</div>
+              </div>
+              <div className="stat-card glass blue">
+                <div className="stat-label">Total Weight Diverted</div>
+                <div className="stat-value">{totalWeight.toFixed(1)} kg</div>
+              </div>
+              <div className="stat-card glass purple">
+                <div className="stat-label">Carbon Offset Spared</div>
+                <div className="stat-value">{co2Saved} kg</div>
+              </div>
+              <div className="stat-card glass teal">
+                <div className="stat-label">Water Conserved</div>
+                <div className="stat-value">{waterSaved.toLocaleString()} L</div>
+              </div>
+            </div>
+
+            <div style={{ lineHeight: '1.8', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+              <p><strong>Reporting Scope:</strong> Post-consumer and post-industrial textile waste diversion.</p>
+              <p><strong>Average Circularity Index:</strong> <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{avgCircularity}%</span></p>
+              <p><strong>Estimated Recovered Feedstock Value:</strong> ${(totalWeight * 3.5).toFixed(2)} USD</p>
+              <p><strong>Landfill Volume Footprint Spared:</strong> {(totalWeight * 0.0035).toFixed(4)} m³</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Google User Role Selection Modal */}
+      {showGoogleRoleModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(5, 10, 20, 0.88)',
+          backdropFilter: 'blur(25px)',
+          WebkitBackdropFilter: 'blur(25px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1.5rem'
+        }}>
+          <div className="glass" style={{
+            maxWidth: '480px',
+            width: '100%',
+            padding: '2.2rem',
+            borderRadius: '20px',
+            background: 'rgba(10, 15, 26, 0.95)',
+            border: '1px solid rgba(84, 214, 155, 0.4)',
+            boxShadow: '0 30px 70px rgba(0, 0, 0, 0.9), 0 0 35px rgba(84, 214, 155, 0.25)',
+            position: 'relative'
+          }}>
+            <button 
+              onClick={() => setShowGoogleRoleModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'rgba(255,255,255,0.08)',
+                border: 'none',
+                color: '#fff',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Close"
+            >
+              ✕
+            </button>
+            <div style={{ textAlign: 'center', marginBottom: '1.2rem' }}>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', marginBottom: '0.4rem' }}>Welcome to TexWaste AI</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Select your primary workspace role to personalize your analytics and workflow:</p>
+            </div>
+            
+            <div className="form-group" style={{ marginBottom: '1.6rem' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff', marginBottom: '0.6rem', display: 'block' }}>Choose Workspace Role</label>
+              <select className="form-control" value={role} onChange={(e) => setRole(e.target.value)} style={{ padding: '0.75rem 1rem', fontSize: '0.9rem' }}>
+                <option value="Recycling Facility Operator">Recycling Facility Operator (Waste intake & sorting)</option>
+                <option value="Sustainability Manager">Sustainability Manager (ESG metrics & carbon offsets)</option>
+                <option value="Textile Manufacturer">Textile Manufacturer (Offcuts & circularity)</option>
+              </select>
+            </div>
+
+            <button 
+              onClick={() => sendGoogleTokenToBackend(pendingGoogleToken, pendingGoogleEmail, pendingGoogleName, role)} 
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '0.8rem', borderRadius: '30px', fontSize: '0.95rem', fontWeight: 700 }}
+            >
+              Complete Setup & Launch Workspace
+            </button>
           </div>
         </div>
       )}

@@ -1,0 +1,82 @@
+{
+  "Acrylic": {
+    "class_id": 0,
+    "test_physical_samples": 2,
+    "test_images": 8,
+    "precision": 0.6153846153846154,
+    "recall": 1.0,
+    "f1_score": 0.7619047619047619
+  },
+  "Cotton": {
+    "class_id": 1,
+    "test_physical_samples": 88,
+    "test_images": 352,
+    "precision": 0.8084415584415584,
+    "recall": 0.7073863636363636,
+    "f1_score": 0.7545454545454545
+  },
+  "Denim": {
+    "class_id": 2,
+    "test_physical_samples": 25,
+    "test_images": 100,
+    "precision": 0.9696969696969697,
+    "recall": 0.96,
+    "f1_score": 0.964824120603015
+  },
+  "Linen": {
+    "class_id": 3,
+    "test_physical_samples": 3,
+    "test_images": 12,
+    "precision": 1.0,
+    "recall": 0.8333333333333334,
+    "f1_score": 0.9090909090909091
+  },
+  "Mixed Fabrics": {
+    "class_id": 4,
+    "test_physical_samples": 61,
+    "test_images": 244,
+    "precision": 0.6223175965665236,
+    "recall": 0.5942622950819673,
+    "f1_score": 0.6079664570230608
+  },
+  "Nylon": {
+    "class_id": 5,
+    "test_physical_samples": 8,
+    "test_images": 32,
+    "precision": 0.5769230769230769,
+    "recall": 0.9375,
+    "f1_score": 0.7142857142857143
+  },
+  "Polyester": {
+    "class_id": 6,
+    "test_physical_samples": 34,
+    "test_images": 136,
+    "precision": 0.6754966887417219,
+    "recall": 0.75,
+    "f1_score": 0.710801393728223
+  },
+  "Rayon (Viscose)": {
+    "class_id": 7,
+    "test_physical_samples": 5,
+    "test_images": 20,
+    "precision": 0.3333333333333333,
+    "recall": 0.4,
+    "f1_score": 0.36363636363636365
+  },
+  "Silk": {
+    "class_id": 8,
+    "test_physical_samples": 7,
+    "test_images": 28,
+    "precision": 0.6341463414634146,
+    "recall": 0.9285714285714286,
+    "f1_score": 0.7536231884057971
+  },
+  "Wool": {
+    "class_id": 9,
+    "test_physical_samples": 13,
+    "test_images": 52,
+    "precision": 0.6415094339622641,
+    "recall": 0.6538461538461539,
+    "f1_score": 0.6476190476190476
+  }
+}

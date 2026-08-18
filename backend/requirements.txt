@@ -14,3 +14,4 @@ torchvision==0.18.0 --find-links https://download.pytorch.org/whl/cpu
 numpy<2.0.0
 pandas==2.2.2
 xgboost==2.0.3
+openpyxl==3.1.5

@@ -26,3 +26,21 @@ Thumbs.db
 # Database Files
 *.sqlite3
 *.db
+
+# ML Datasets & Weights (Do NOT commit large binary datasets)
+ml/dataset/
+ml/dataset_report.json
+ml/dataset_manifest.csv
+ml/class_distribution.json
+*.zip
+*.zip.*
+*.pth
+*.pt
+*.onnx
+*.bin
+
+# Environment & Secrets
+.env
+*.env
+backend/.env
+frontend/.env
