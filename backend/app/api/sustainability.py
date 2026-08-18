@@ -210,7 +210,7 @@ def get_manufacturer_analytics(
         offcuts_weight = float(df["quantity"].sum())
         rec_df = df[df["waste_category"].isin(["Upcyclable", "Recyclable", "Reusable"])]
         recovered_weight = float(rec_df["quantity"].sum())
-        cost_saved = round(recovered_weight * sc.RECOVERY_MATERIAL_VALUE_USD_PER_KG, 2)
+        cost_saved = round(float(sum(b.quantity * sc.MATERIAL_GROUND_SCRAP_RATES_INR.get(b.fabric_type, 12.50) for b in batches if (b.waste_category or "Recyclable") in ["Upcyclable", "Recyclable", "Reusable"])), 2)
         reduction_rate = round((recovered_weight / offcuts_weight * 100.0), 1) if offcuts_weight > 0 else 0.0
         circ_rating = round(float(df["circularity_score"].mean()), 1)
         recent = df.tail(5).to_dict(orient="records")

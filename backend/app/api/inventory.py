@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.models.waste import WasteBatch
+from app.models.announcement import PlatformAnnouncement
 from app.api.auth import get_current_user
 from app.api.image_processing import analyze_image_properties
 from app.api.classifier import fabric_classifier
@@ -292,6 +293,20 @@ def create_batch(
     db.add(db_batch)
     db.commit()
     db.refresh(db_batch)
+
+    # Broadcast notification notice to all platform roles
+    batch_announcement = PlatformAnnouncement(
+        title=f"New Batch Logged: #{db_batch.id} ({db_batch.fabric_type})",
+        message=f"Intake of {db_batch.quantity:.1f} kg of {db_batch.fabric_type} ({db_batch.color}, {db_batch.condition} condition) was registered by {current_user.username} with a {db_batch.circularity_score:.1f}% circularity score.",
+        severity="info",
+        target_role="ALL",
+        created_by_id=current_user.id,
+        created_at=datetime.utcnow(),
+        is_active=True
+    )
+    db.add(batch_announcement)
+    db.commit()
+
     return db_batch
 
 @router.get("/batches", response_model=List[BatchResponse])

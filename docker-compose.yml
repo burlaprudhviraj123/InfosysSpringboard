@@ -39,6 +39,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
+      - ./backend:/app
       - backend_uploads:/app/static/uploads
       - ./ml/models:/app/ml/models:ro
     depends_on:

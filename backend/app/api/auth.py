@@ -27,6 +27,7 @@ class UserResponse(BaseModel):
     email: str
     organization_name: str | None = None
     role: UserRole
+    is_active: bool = True
 
     class Config:
         from_attributes = True
@@ -70,7 +71,8 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
         email=user_in.email,
         hashed_password=hashed_password,
         organization_name=user_in.organization_name,
-        role=user_in.role
+        role=user_in.role,
+        is_active=True
     )
     db.add(db_user)
     db.commit()
@@ -84,6 +86,11 @@ def login(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Incorrect username or password"
+        )
+    if not getattr(user, 'is_active', True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account has been suspended or deactivated. Contact platform administrator."
         )
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
@@ -107,7 +114,65 @@ def get_all_users(db: Session = Depends(get_db), current_user: User = Depends(ge
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Administrative privileges required to access user directory."
         )
-    return db.query(User).all()
+    return db.query(User).order_by(User.id.asc()).all()
+
+class UserStatusUpdate(BaseModel):
+    is_active: bool
+
+class AdminUserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    organization_name: str | None = None
+    role: UserRole = UserRole.OPERATOR
+
+@router.post("/users", response_model=UserResponse)
+def admin_create_user(payload: AdminUserCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrative privileges required.")
+    existing = db.query(User).filter((User.email == payload.email) | (User.username == payload.username)).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User with this email or username already exists.")
+    hashed_pw = security.get_password_hash(payload.password)
+    new_user = User(
+        username=payload.username,
+        email=payload.email,
+        hashed_password=hashed_pw,
+        organization_name=payload.organization_name,
+        role=payload.role,
+        is_active=True
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+@router.put("/users/{user_id}/status", response_model=UserResponse)
+def update_user_status(user_id: int, payload: UserStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrative privileges required.")
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if target_user.id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot modify active status of your own administrator account.")
+    target_user.is_active = payload.is_active
+    db.commit()
+    db.refresh(target_user)
+    return target_user
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrative privileges required.")
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if target_user.id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete your own administrator account.")
+    db.delete(target_user)
+    db.commit()
+    return {"message": "User successfully deleted"}
 
 import urllib.request
 import json
@@ -302,8 +367,8 @@ def send_otp(payload: OTPRequest, db: Session = Depends(get_db)):
         print(f"[TexWaste AI OTP] 🔐 OTP for {email_clean}: {otp}")
         
     return {
-        "message": f"A 6-digit verification code has been sent to {payload.email}. Please check your email inbox.",
-        "email_sent": email_sent
+        "message": f"A 6-digit verification code has been sent to {payload.email}. Please check your Inbox and Spam/Junk folder.",
+        "email": email_clean
     }
 
 class OTPVerifyOnlyRequest(BaseModel):

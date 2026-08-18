@@ -16,3 +16,14 @@ class PlatformAnnouncement(Base):
     is_active = Column(Boolean, default=True, nullable=False)
 
     creator = relationship("User")
+
+
+class NotificationRead(Base):
+    __tablename__ = "notification_reads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    notification_id = Column(String, nullable=False, index=True)
+    read_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User")

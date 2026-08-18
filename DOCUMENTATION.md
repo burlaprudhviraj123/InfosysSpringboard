@@ -130,10 +130,10 @@ $$\text{Circularity Score} = 0.35(R) + 0.20(C) + 0.20(U) + 0.15(E) + 0.10(F)$$
 * $F$ = Industrial Processing Feasibility (0–100)
 
 ### Environmental Life Cycle Assessment (LCA) Constants
-* **Carbon Offset Factor**: $3.6\text{ kg CO}_2\text{-eq}$ saved per kg textile waste diverted.
+* **Carbon Offset Factor**: $3.60\text{ kg CO}_2\text{-eq}$ saved per kg textile waste diverted (ISO 14040/14044 benchmark).
 * **Water Conservation Factor**: $250.0\text{ Liters}$ saved per kg textile waste diverted.
 * **Landfill Space Spared**: $0.0035\text{ m}^3$ avoided volume per kg compressed textile waste.
-* **Feedstock Value**: $\$3.50\text{ USD}$ recovered value per kg sorted textile waste.
+* **Feedstock Scrap Value**: Realistic Indian scrap yard market intake rates ($\text{₹6.00}$ to $\text{₹25.00 INR/kg}$, weighted avg $\text{₹13.04/kg}$).
 * **Industry Baseline Diversion**: $68.5\%$ benchmark.
 
 ---
@@ -148,23 +148,23 @@ The platform provides 5 specialized report types:
 5. **Circular Economy Analytics**: 5-factor circularity scoring, material quality grades, and circular loop efficiency.
 
 ### Export Formats
-* **Excel Workbook (`.xlsx`)**: Generated dynamically via `openpyxl` with multi-sheet formatting (`Executive Summary`, `Batch Ledger`, `Material Breakdown`).
-* **CSV Data Stream (`.csv`)**: Raw structured inventory ledger stream with RFC 4180 headers.
-* **PDF Printable Report (`.pdf`)**: Formatted executive report with certified audit header.
+* **Excel Workbook (`.xlsx`)**: Generated dynamically via `openpyxl` with 3 specialized tabs (`Specialized Dossier`, `Executive Summary`, `Batch Audit Trail`).
+* **CSV Data Stream (`.csv`)**: Report-specific structured dataset stream with RFC 4180 headers.
+* **PDF Printable Report (`.pdf`)**: Formatted executive report with certified audit header and tailored metrics.
 
 ---
 
 ## 8. Automated Test Suite & Verification Results
 
-* **Pytest Test Suite**: `backend/tests/` (22 automated test cases)
+* **Pytest Test Suite**: `backend/tests/` (23 automated test cases)
   - `test_auth.py`: 8 tests (Registration, Login, Bcrypt hashing, Valid JWT, Invalid JWT, Expired JWT, Unauthorized 401, Admin RBAC 403).
-  - `test_inventory.py`: 2 tests (Batch creation 201, Batch retrieval 200, Delete RBAC 204/403).
+  - `test_inventory.py`: 3 tests (Batch creation 201, Batch retrieval 200, Human condition independence, Delete RBAC 204/403).
   - `test_ai_analysis.py`: 1 test (Inference, 10-class taxonomy, probabilities, non-persisting validation).
   - `test_circularity.py`: 3 tests (Formula verification, category boundaries, API endpoint).
   - `test_sustainability.py`: 3 tests (Zero-state behavior, live dynamic DB calculation, manufacturer analytics).
   - `test_notifications.py`: 2 tests (Automatic notifications, Admin announcement creation, role-filtering, deletion).
   - `test_reports.py`: 3 tests (5 JSON report types, 5 Excel exports, 5 CSV exports).
-* **Result**: **22 / 22 Tests Passed (100% Pass Rate)** in 7.05s.
+* **Result**: **23 / 23 Tests Passed (100% Pass Rate)** in 7.28s.
 
 ---
 

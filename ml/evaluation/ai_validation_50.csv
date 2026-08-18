@@ -1,0 +1,51 @@
+Index,Image Path,Sample ID,Ground Truth Class,Source Folder,AI Predicted Material,Result,Confidence (%),Detected Color,Damage Score,Contamination Detected,Structural Integrity,Stain Risk,Weave Pattern
+1,ml/dataset/Fabrics/Cotton/10/im_1.png,10,Cotton,Cotton,Cotton,CORRECT,80.93%,Indigo / Blue,95.00,FALSE,5.00,49.40,Smooth Knit / Flat Texture
+2,ml/dataset/Fabrics/Cotton/1282/im_1.png,1282,Cotton,Cotton,Polyester,MISCLASSIFIED,62.57%,Dark / Black,12.70,FALSE,87.30,28.10,Smooth Knit / Flat Texture
+3,ml/dataset/Fabrics/Cotton/154/im_1.png,154,Cotton,Cotton,Cotton,CORRECT,76.98%,Emerald / Green,70.50,FALSE,29.50,43.30,Smooth Knit / Flat Texture
+4,ml/dataset/Fabrics/Cotton/188/im_1.png,188,Cotton,Cotton,Cotton,CORRECT,92.51%,Dark / Black,0.90,FALSE,99.10,17.40,Smooth Knit / Flat Texture
+5,ml/dataset/Fabrics/Cotton/419/im_1.png,419,Cotton,Cotton,Cotton,CORRECT,87.81%,White / Off-White,15.50,FALSE,84.50,26.10,Smooth Knit / Flat Texture
+6,ml/dataset/Fabrics/Polyester/1000/im_1.png,1000,Polyester,Polyester,Polyester,CORRECT,98.01%,Crimson / Red,95.00,FALSE,5.00,47.10,Smooth Knit / Flat Texture
+7,ml/dataset/Fabrics/Polyester/1646/im_1.png,1646,Polyester,Polyester,Polyester,CORRECT,47.06%,Indigo / Blue,62.60,FALSE,37.40,49.30,Smooth Knit / Flat Texture
+8,ml/dataset/Fabrics/Polyester/1912/im_1.png,1912,Polyester,Polyester,Silk,MISCLASSIFIED,63.09%,Indigo / Blue,32.30,FALSE,67.70,28.70,Smooth Knit / Flat Texture
+9,ml/dataset/Fabrics/Polyester/543/im_1.png,543,Polyester,Polyester,Cotton,MISCLASSIFIED,24.31%,Indigo / Blue,86.00,FALSE,14.00,62.80,Smooth Knit / Flat Texture
+10,ml/dataset/Fabrics/Polyester/709/im_1.png,709,Polyester,Polyester,Polyester,CORRECT,67.14%,Crimson / Red,23.40,FALSE,76.60,32.60,Smooth Knit / Flat Texture
+11,ml/dataset/Fabrics/Denim/1/im_1.png,1,Denim,Denim,Denim,CORRECT,99.43%,Indigo / Blue,41.40,FALSE,58.60,69.20,Smooth Knit / Flat Texture
+12,ml/dataset/Fabrics/Denim/1071/im_1.png,1071,Denim,Denim,Denim,CORRECT,99.99%,Dark / Black,7.70,FALSE,92.30,27.90,Smooth Knit / Flat Texture
+13,ml/dataset/Fabrics/Denim/1235/im_1.png,1235,Denim,Denim,Denim,CORRECT,37.84%,Dark / Black,11.70,FALSE,88.30,25.90,Smooth Knit / Flat Texture
+14,ml/dataset/Fabrics/Denim/1310/im_1.png,1310,Denim,Denim,Denim,CORRECT,99.51%,Indigo / Blue,95.00,TRUE,5.00,83.00,Woven Fiber Grid
+15,ml/dataset/Fabrics/Denim/1343/im_1.png,1343,Denim,Denim,Denim,CORRECT,96.54%,Indigo / Blue,57.90,FALSE,42.10,58.80,Smooth Knit / Flat Texture
+16,ml/dataset/Fabrics/Wool/1403/im_1.png,1403,Wool,Wool,Wool,CORRECT,99.36%,Indigo / Blue,95.00,FALSE,5.00,63.00,Smooth Knit / Flat Texture
+17,ml/dataset/Fabrics/Wool/1423/im_1.png,1423,Wool,Wool,Wool,CORRECT,97.27%,Indigo / Blue,14.30,FALSE,85.70,42.20,Smooth Knit / Flat Texture
+18,ml/dataset/Fabrics/Wool/22/im_1.png,22,Wool,Wool,Wool,CORRECT,64.80%,Indigo / Blue,92.20,FALSE,7.80,44.90,Smooth Knit / Flat Texture
+19,ml/dataset/Fabrics/Wool/445/im_1.png,445,Wool,Wool,Wool,CORRECT,96.65%,Indigo / Blue,26.20,FALSE,73.80,43.20,Smooth Knit / Flat Texture
+20,ml/dataset/Fabrics/Wool/826/im_1.png,826,Wool,Wool,Wool,CORRECT,97.33%,Indigo / Blue,55.20,FALSE,44.80,37.70,Smooth Knit / Flat Texture
+21,ml/dataset/Fabrics/Silk/1004/im_1.png,1004,Silk,Silk,Silk,CORRECT,99.70%,Indigo / Blue,95.00,FALSE,5.00,45.30,Smooth Knit / Flat Texture
+22,ml/dataset/Fabrics/Silk/1014/im_1.png,1014,Silk,Silk,Silk,CORRECT,99.86%,Indigo / Blue,95.00,FALSE,5.00,60.20,Smooth Knit / Flat Texture
+23,ml/dataset/Fabrics/Silk/1024/im_1.png,1024,Silk,Silk,Silk,CORRECT,93.12%,Dark / Black,79.40,FALSE,20.60,43.80,Smooth Knit / Flat Texture
+24,ml/dataset/Fabrics/Silk/437/im_1.png,437,Silk,Silk,Silk,CORRECT,99.67%,Indigo / Blue,94.80,FALSE,5.20,68.10,Smooth Knit / Flat Texture
+25,ml/dataset/Fabrics/Silk/779/im_1.png,779,Silk,Silk,Silk,CORRECT,98.24%,Crimson / Red,28.40,FALSE,71.60,47.70,Smooth Knit / Flat Texture
+26,ml/dataset/Fabrics/Nylon/1203/im_1.png,1203,Nylon,Nylon,Nylon,CORRECT,96.11%,Dark / Black,0.50,FALSE,99.50,28.60,Smooth Knit / Flat Texture
+27,ml/dataset/Fabrics/Nylon/1441/im_1.png,1441,Nylon,Nylon,Nylon,CORRECT,99.21%,Emerald / Green,0.90,FALSE,99.10,43.30,Smooth Knit / Flat Texture
+28,ml/dataset/Fabrics/Nylon/1771/im_1.png,1771,Nylon,Nylon,Nylon,CORRECT,95.28%,Dark / Black,0.70,FALSE,99.30,25.10,Smooth Knit / Flat Texture
+29,ml/dataset/Fabrics/Nylon/1896/im_1.png,1896,Nylon,Nylon,Nylon,CORRECT,95.74%,Indigo / Blue,0.00,FALSE,100.00,26.70,Smooth Knit / Flat Texture
+30,ml/dataset/Fabrics/Nylon/1907/im_1.png,1907,Nylon,Nylon,Nylon,CORRECT,67.88%,Dark / Black,2.10,FALSE,97.90,27.30,Smooth Knit / Flat Texture
+31,ml/dataset/Fabrics/Viscose/118/im_1.png,118,Rayon,Viscose,Rayon (Viscose),CORRECT,93.55%,White / Off-White,15.30,FALSE,84.70,46.00,Smooth Knit / Flat Texture
+32,ml/dataset/Fabrics/Viscose/158/im_1.png,158,Rayon,Viscose,Mixed Fabrics,MISCLASSIFIED,50.24%,Indigo / Blue,63.80,FALSE,36.20,39.80,Smooth Knit / Flat Texture
+33,ml/dataset/Fabrics/Viscose/191/im_1.png,191,Rayon,Viscose,Rayon (Viscose),CORRECT,87.84%,Dark / Black,2.30,FALSE,97.70,20.10,Smooth Knit / Flat Texture
+34,ml/dataset/Fabrics/Viscose/207/im_1.png,207,Rayon,Viscose,Rayon (Viscose),CORRECT,53.52%,White / Off-White,29.40,FALSE,70.60,26.30,Smooth Knit / Flat Texture
+35,ml/dataset/Fabrics/Viscose/46/im_1.png,46,Rayon,Viscose,Rayon (Viscose),CORRECT,99.26%,Indigo / Blue,95.00,FALSE,5.00,56.90,Smooth Knit / Flat Texture
+36,ml/dataset/Fabrics/Linen/17/im_1.png,17,Linen,Linen,Linen,CORRECT,99.60%,Emerald / Green,95.00,FALSE,5.00,54.20,Smooth Knit / Flat Texture
+37,ml/dataset/Fabrics/Linen/786/im_1.png,786,Linen,Linen,Linen,CORRECT,99.98%,Indigo / Blue,33.60,FALSE,66.40,57.00,Smooth Knit / Flat Texture
+38,ml/dataset/Fabrics/Linen/789/im_1.png,789,Linen,Linen,Linen,CORRECT,99.56%,Dark / Black,12.20,FALSE,87.80,41.50,Smooth Knit / Flat Texture
+39,ml/dataset/Fabrics/Linen/792/im_1.png,792,Linen,Linen,Linen,CORRECT,99.21%,Emerald / Green,45.80,FALSE,54.20,53.00,Smooth Knit / Flat Texture
+40,ml/dataset/Fabrics/Linen/795/im_1.png,795,Linen,Linen,Linen,CORRECT,99.28%,Indigo / Blue,48.90,FALSE,51.10,57.60,Smooth Knit / Flat Texture
+41,ml/dataset/Fabrics/Acrylic/182/im_1.png,182,Acrylic,Acrylic,Acrylic,CORRECT,62.50%,Crimson / Red,3.60,FALSE,96.40,56.90,Smooth Knit / Flat Texture
+42,ml/dataset/Fabrics/Acrylic/184/im_1.png,184,Acrylic,Acrylic,Acrylic,CORRECT,98.74%,Crimson / Red,10.90,TRUE,89.10,84.60,Woven Fiber Grid
+43,ml/dataset/Fabrics/Acrylic/329/im_1.png,329,Acrylic,Acrylic,Wool,MISCLASSIFIED,62.49%,Dark / Black,0.80,FALSE,99.20,22.90,Smooth Knit / Flat Texture
+44,ml/dataset/Fabrics/Acrylic/384/im_1.png,384,Acrylic,Acrylic,Acrylic,CORRECT,97.17%,Crimson / Red,26.00,FALSE,74.00,34.30,Smooth Knit / Flat Texture
+45,ml/dataset/Fabrics/Acrylic/506/im_1.png,506,Acrylic,Acrylic,Acrylic,CORRECT,69.05%,Dark / Black,2.20,FALSE,97.80,24.10,Smooth Knit / Flat Texture
+46,ml/dataset/Fabrics/Blended/1034/im_1.png,1034,Mixed Fabrics,Blended,Mixed Fabrics,CORRECT,59.73%,Crimson / Red,95.00,FALSE,5.00,64.10,Smooth Knit / Flat Texture
+47,ml/dataset/Fabrics/Blended/1542/im_1.png,1542,Mixed Fabrics,Blended,Mixed Fabrics,CORRECT,70.06%,Indigo / Blue,48.50,FALSE,51.50,46.70,Smooth Knit / Flat Texture
+48,ml/dataset/Fabrics/Blended/1782/im_1.png,1782,Mixed Fabrics,Blended,Mixed Fabrics,CORRECT,98.15%,Dark / Black,31.30,FALSE,68.70,34.00,Smooth Knit / Flat Texture
+49,ml/dataset/Fabrics/Blended/333/im_1.png,333,Mixed Fabrics,Blended,Polyester,MISCLASSIFIED,50.67%,Indigo / Blue,95.00,FALSE,5.00,52.20,Smooth Knit / Flat Texture
+50,ml/dataset/Fabrics/Blended/664/im_1.png,664,Mixed Fabrics,Blended,Mixed Fabrics,CORRECT,72.76%,Dark / Black,95.00,FALSE,5.00,41.60,Smooth Knit / Flat Texture

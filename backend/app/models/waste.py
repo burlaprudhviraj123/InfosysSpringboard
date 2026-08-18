@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.session import Base
+from app.models.user import User
 
 class WasteBatch(Base):
     __tablename__ = "waste_batches"

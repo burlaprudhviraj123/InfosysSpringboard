@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Enum
+from sqlalchemy import Column, Integer, String, Enum, Boolean
 from app.db.session import Base
 
 class UserRole(str, enum.Enum):
@@ -17,3 +17,4 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     organization_name = Column(String, nullable=True)
     role = Column(Enum(UserRole), default=UserRole.OPERATOR, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)

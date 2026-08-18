@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.api.auth import get_current_user
 from app.models.user import User, UserRole
 from app.models.waste import WasteBatch
-from app.models.announcement import PlatformAnnouncement
+from app.models.announcement import PlatformAnnouncement, NotificationRead
 from app.core.sustainability_config import (
     CO2_SAVINGS_FACTOR_KG_PER_KG,
     WATER_SAVINGS_FACTOR_L_PER_KG,
@@ -170,13 +170,18 @@ def get_notifications(
     notifications = []
     notif_id = 1
 
+    # Load persisted read notification IDs for this user
+    read_records = db.query(NotificationRead.notification_id).filter(
+        NotificationRead.user_id == current_user.id
+    ).all()
+    read_ids = {r[0] for r in read_records}
+
     # 1. Platform Announcements from Database (Admin-Created & Role-Targeted)
     active_announcements = db.query(PlatformAnnouncement).filter(
         PlatformAnnouncement.is_active == True
     ).order_by(PlatformAnnouncement.created_at.desc()).all()
 
     for a in active_announcements:
-        # Check target role visibility
         target = a.target_role
         is_visible = (
             target == "ALL"
@@ -185,8 +190,9 @@ def get_notifications(
             or user_role_str == UserRole.ADMIN.value
         )
         if is_visible:
+            item_id = f"announcement-{a.id}"
             notifications.append({
-                "id": f"announcement-{a.id}",
+                "id": item_id,
                 "category": "Platform Announcement",
                 "type": "platform_announcement",
                 "severity": a.severity,
@@ -194,7 +200,7 @@ def get_notifications(
                 "message": a.message,
                 "timestamp": a.created_at.isoformat() if hasattr(a.created_at, "isoformat") else str(a.created_at),
                 "time_ago": humanize_time(a.created_at),
-                "unread": True,
+                "unread": (item_id not in read_ids),
                 "batch_id": None
             })
 
@@ -203,8 +209,9 @@ def get_notifications(
 
     if not batches:
         # Inventory Warning when zero batches exist
+        warning_id = "warning-empty-ledger"
         notifications.append({
-            "id": "warning-empty-ledger",
+            "id": warning_id,
             "category": "Inventory Warning",
             "type": "inventory_warning",
             "severity": "warning",
@@ -212,7 +219,7 @@ def get_notifications(
             "message": "No active textile batches found in the facility ledger. Upload fabric photos to register incoming waste.",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "time_ago": "Just now",
-            "unread": True,
+            "unread": (warning_id not in read_ids),
             "batch_id": None
         })
         return notifications
@@ -223,8 +230,9 @@ def get_notifications(
 
     # 2. Sustainability Milestone Alert (From Live Throughput)
     latest_date = batches[0].collection_date if batches[0].collection_date else datetime.now(timezone.utc)
+    sustain_id = f"sustainability-target-{len(batches)}"
     notifications.append({
-        "id": f"sustainability-target-{len(batches)}",
+        "id": sustain_id,
         "category": "Sustainability",
         "type": "sustainability",
         "severity": "success",
@@ -232,7 +240,7 @@ def get_notifications(
         "message": f"Facility has diverted {total_weight:.1f} kg across {len(batches)} batches, avoiding {total_co2:.1f} kg CO2 and conserving {total_water:.0f} L water.",
         "timestamp": latest_date.isoformat() if hasattr(latest_date, "isoformat") else str(latest_date),
         "time_ago": humanize_time(latest_date),
-        "unread": True,
+        "unread": (sustain_id not in read_ids),
         "batch_id": None
     })
 
@@ -242,8 +250,9 @@ def get_notifications(
         c_str = c_dt.strftime("%Y-%m-%d") if hasattr(c_dt, "strftime") else str(c_dt).split("T")[0]
         
         # Category 1: Waste Collection Alerts
+        coll_id = f"collection-batch-{b.id}"
         notifications.append({
-            "id": f"collection-batch-{b.id}",
+            "id": coll_id,
             "category": "Waste Collection",
             "type": "waste_collection",
             "severity": "info",
@@ -251,14 +260,15 @@ def get_notifications(
             "message": f"Intake of {b.quantity:.1f} kg ({b.fabric_type}, {b.color}) scheduled for collection on {c_str}.",
             "timestamp": c_dt.isoformat() if hasattr(c_dt, "isoformat") else str(c_dt),
             "time_ago": humanize_time(c_dt),
-            "unread": True,
+            "unread": (coll_id not in read_ids),
             "batch_id": b.id
         })
 
         # Category 2: Recycling Opportunity Notifications (High Circularity)
         if b.circularity_score and b.circularity_score >= 70.0:
+            opp_id = f"opportunity-batch-{b.id}"
             notifications.append({
-                "id": f"opportunity-batch-{b.id}",
+                "id": opp_id,
                 "category": "Recycling Opportunity",
                 "type": "recycling_opportunity",
                 "severity": "success",
@@ -266,14 +276,15 @@ def get_notifications(
                 "message": f"{b.quantity:.1f} kg of {b.fabric_type} qualifies for {b.recycling_recommendation} with a {b.circularity_score:.1f}% circularity rating.",
                 "timestamp": c_dt.isoformat() if hasattr(c_dt, "isoformat") else str(c_dt),
                 "time_ago": humanize_time(c_dt),
-                "unread": True,
+                "unread": (opp_id not in read_ids),
                 "batch_id": b.id
             })
 
         # Category 4: Inventory Warnings (Hazardous / Contaminated or Damaged)
         if b.waste_category in ["Hazardous Textile Waste", "Hazardous", "Repairable"]:
+            warn_id = f"warning-batch-{b.id}"
             notifications.append({
-                "id": f"warning-batch-{b.id}",
+                "id": warn_id,
                 "category": "Inventory Warning",
                 "type": "inventory_warning",
                 "severity": "urgent" if "Hazardous" in b.waste_category else "warning",
@@ -281,8 +292,71 @@ def get_notifications(
                 "message": f"Batch #{b.id} flagged as {b.waste_category}. Requires dedicated sorting and PPE handling.",
                 "timestamp": c_dt.isoformat() if hasattr(c_dt, "isoformat") else str(c_dt),
                 "time_ago": humanize_time(c_dt),
-                "unread": True,
+                "unread": (warn_id not in read_ids),
                 "batch_id": b.id
             })
 
     return notifications
+
+
+# -------------------------------------------------------------
+# 3. Read Status Persistence Endpoints
+# -------------------------------------------------------------
+
+class ReadAllPayload(BaseModel):
+    notification_ids: Optional[list[str]] = None
+
+@router.post("/read-all")
+def mark_all_notifications_as_read(
+    payload: Optional[ReadAllPayload] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Mark all active notifications as read for current user."""
+    if payload and payload.notification_ids:
+        ids_to_mark = payload.notification_ids
+    else:
+        active_feed = get_notifications(db=db, current_user=current_user)
+        ids_to_mark = [item["id"] for item in active_feed]
+
+    existing = db.query(NotificationRead.notification_id).filter(
+        NotificationRead.user_id == current_user.id,
+        NotificationRead.notification_id.in_(ids_to_mark)
+    ).all()
+    already_read = {r[0] for r in existing}
+
+    new_records = [
+        NotificationRead(user_id=current_user.id, notification_id=nid, read_at=datetime.utcnow())
+        for nid in ids_to_mark
+        if nid not in already_read
+    ]
+
+    if new_records:
+        db.bulk_save_objects(new_records)
+        db.commit()
+
+    return {"success": True, "count_marked": len(new_records)}
+
+
+@router.post("/{notification_id}/read")
+def mark_notification_as_read(
+    notification_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Mark a single notification as read for current user."""
+    existing = db.query(NotificationRead).filter(
+        NotificationRead.user_id == current_user.id,
+        NotificationRead.notification_id == notification_id
+    ).first()
+
+    if not existing:
+        record = NotificationRead(
+            user_id=current_user.id,
+            notification_id=notification_id,
+            read_at=datetime.utcnow()
+        )
+        db.add(record)
+        db.commit()
+
+    return {"success": True, "notification_id": notification_id, "unread": False}

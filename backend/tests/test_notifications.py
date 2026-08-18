@@ -52,3 +52,31 @@ def test_admin_announcement_workflow(client, admin_headers, operator_headers, ma
 
     # Clean up manager announcement
     client.delete(f"/api/notifications/announcements/{target_id}", headers=admin_headers)
+
+def test_notification_read_persistence(client, operator_headers):
+    # 1. Fetch initial feed
+    res = client.get("/api/notifications", headers=operator_headers)
+    assert res.status_code == 200
+    notifs = res.json()
+    assert len(notifs) > 0
+    first_id = notifs[0]["id"]
+
+    # 2. Mark first notification as read
+    read_res = client.post(f"/api/notifications/{first_id}/read", headers=operator_headers)
+    assert read_res.status_code == 200
+    assert read_res.json()["unread"] == False
+
+    # 3. Reload feed and verify unread is False
+    res_after = client.get("/api/notifications", headers=operator_headers)
+    notifs_after = res_after.json()
+    first_after = next(n for n in notifs_after if n["id"] == first_id)
+    assert first_after["unread"] == False
+
+    # 4. Mark all as read
+    read_all_res = client.post("/api/notifications/read-all", json={}, headers=operator_headers)
+    assert read_all_res.status_code == 200
+
+    # 5. Reload feed and verify all are marked read
+    res_final = client.get("/api/notifications", headers=operator_headers)
+    for n in res_final.json():
+        assert n["unread"] == False
