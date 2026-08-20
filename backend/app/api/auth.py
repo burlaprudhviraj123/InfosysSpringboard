@@ -367,8 +367,10 @@ def send_otp(payload: OTPRequest, db: Session = Depends(get_db)):
         print(f"[TexWaste AI OTP] 🔐 OTP for {email_clean}: {otp}")
         
     return {
-        "message": f"A 6-digit verification code has been sent to {payload.email}. Please check your Inbox and Spam/Junk folder.",
-        "email": email_clean
+        "message": f"A 6-digit verification code has been generated for {payload.email}." if not email_sent else f"A 6-digit verification code has been sent to {payload.email}. Please check your Inbox and Spam folder.",
+        "email": email_clean,
+        "email_sent": email_sent,
+        "demo_otp_hint": otp if not email_sent else None
     }
 
 class OTPVerifyOnlyRequest(BaseModel):

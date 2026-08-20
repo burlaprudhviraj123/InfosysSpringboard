@@ -1230,7 +1230,8 @@ function App() {
       const data = await res.json();
       if (res.ok) {
         setAuthSuccess(data.message);
-        setOtpCode('');
+        setDemoOtpHint(data.demo_otp_hint || '');
+        setOtpCode(data.demo_otp_hint || '');
         setOtpStep(2);
       } else {
         setAuthError(data.detail || "Failed to send OTP code.");
@@ -2520,9 +2521,30 @@ function App() {
 
             {otpStep === 2 && (
               <form onSubmit={handleVerifyOTPOnly}>
-                <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1.2rem', fontSize: '0.82rem', color: '#facc15', lineHeight: '1.4' }}>
-                  ⚠️ <strong>Can't find the email?</strong> Please check your <strong>Spam / Junk folder</strong>. OTP emails usually arrive within a few seconds.
-                </div>
+                {demoOtpHint ? (
+                  <div style={{ background: 'rgba(84, 214, 155, 0.12)', border: '1px solid rgba(84, 214, 155, 0.4)', padding: '0.9rem 1.1rem', borderRadius: '10px', marginBottom: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: '#54D69B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        🔑 Instant Verification Code
+                      </div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', letterSpacing: '4px', marginTop: '0.15rem' }}>
+                        {demoOtpHint}
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setOtpCode(demoOtpHint)}
+                      className="btn btn-secondary" 
+                      style={{ width: 'auto', padding: '0.4rem 0.85rem', fontSize: '0.8rem', borderColor: 'rgba(84, 214, 155, 0.5)', color: '#54D69B' }}
+                    >
+                      Autofill Code
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '1.2rem', fontSize: '0.82rem', color: '#facc15', lineHeight: '1.4' }}>
+                    ⚠️ <strong>Can't find the email?</strong> Please check your <strong>Spam / Junk folder</strong>. OTP emails usually arrive within a few seconds.
+                  </div>
+                )}
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                     <label style={{ margin: 0 }}>6-Digit OTP Code</label>
