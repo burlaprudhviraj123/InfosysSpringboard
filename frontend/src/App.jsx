@@ -15,6 +15,65 @@ const getImageUrl = (path) => {
   return cleanPath;
 };
 
+// Robust Fabric Thumbnail Component with Automatic Error Fallback to Styled Badge
+function FabricThumbnail({ path, fabricType, size = 45, borderRadius = 6 }) {
+  const [hasError, setHasError] = useState(false);
+  const emojiMap = {
+    'Cotton': '👕',
+    'Polyester': '🧵',
+    'Denim': '👖',
+    'Wool': '🧶',
+    'Silk': '👗',
+    'Linen': '🌾',
+    'Nylon': '🪢',
+    'Rayon': '✨',
+    'Acrylic': '🧣',
+    'Mixed Fabrics': '🪡',
+    'Mixed': '🪡'
+  };
+  const emoji = emojiMap[fabricType] || '🧵';
+  const url = getImageUrl(path);
+
+  if (!url || hasError) {
+    return (
+      <div 
+        style={{ 
+          width: `${size}px`, 
+          height: `${size}px`, 
+          minWidth: `${size}px`,
+          borderRadius: `${borderRadius}px`, 
+          background: 'linear-gradient(135deg, rgba(84,214,155,0.18), rgba(0,188,255,0.18))', 
+          border: '1px solid rgba(255,255,255,0.12)',
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          fontSize: `${Math.round(size * 0.45)}px`,
+          userSelect: 'none'
+        }}
+        title={fabricType || 'Fabric'}
+      >
+        {emoji}
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={url} 
+      alt={`${fabricType || 'Fabric'} thumbnail`} 
+      onError={() => setHasError(true)}
+      style={{ 
+        width: `${size}px`, 
+        height: `${size}px`, 
+        minWidth: `${size}px`,
+        borderRadius: `${borderRadius}px`, 
+        objectFit: 'cover',
+        border: '1px solid rgba(255,255,255,0.15)'
+      }} 
+    />
+  );
+}
+
 // Custom Dynamic SVG Pie / Donut Chart Component
 function PieChart({ data, unit = "kg" }) {
   const total = Object.values(data).reduce((a, b) => a + b, 0) || 1;
@@ -3237,13 +3296,7 @@ function App() {
                         <td><strong># {b.id}</strong></td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                            {b.image_path && (
-                              <img 
-                                src={getImageUrl(b.image_path)} 
-                                alt="fabric thumbnail" 
-                                style={{ width: '45px', height: '45px', borderRadius: '6px', objectFit: 'cover' }} 
-                              />
-                            )}
+                            <FabricThumbnail path={b.image_path} fabricType={b.fabric_type} size={45} borderRadius={6} />
                             <div>
                               <div style={{ fontWeight: 600 }}>{b.fabric_type} <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 500 }}>({b.condition})</span></div>
                               <small style={{ color: 'var(--text-muted)' }}>{b.color} • {b.source}</small>
@@ -3551,17 +3604,7 @@ function App() {
                             >
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                  {b.image_path ? (
-                                    <img 
-                                      src={getImageUrl(b.image_path)} 
-                                      alt="fabric thumbnail" 
-                                      style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} 
-                                    />
-                                  ) : (
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
-                                      🧵
-                                    </div>
-                                  )}
+                                  <FabricThumbnail path={b.image_path} fabricType={b.fabric_type} size={40} borderRadius={6} />
                                   <div>
                                     <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '0.95rem' }}>
                                       Batch #{b.id}
