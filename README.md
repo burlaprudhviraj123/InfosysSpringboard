@@ -249,11 +249,11 @@ Licensed under the [MIT License](LICENSE).
 
 If anyone wants to test any role, live conveyor camera intake, or pre-configured dashboards on the platform, use the following credentials:
 
-| Role | Username / Email | Password |
+| Role | Email Address | Password |
 | :--- | :--- | :--- |
-| **Administrator** | `admin@texwaste.ai` *(or `admin`)* | `admin123` |
-| **Sustainability Manager** | `sustainability@texwaste.ai` *(or `sustainability_mgr`)* | `password123` |
-| **Recycling Operator** | `operator@texwaste.ai` *(or `operator1`)* | `password123` |
-| **Textile Manufacturer** | `manufacturer@texwaste.ai` *(or `manufacturer1`)* | `password123` |
+| **Administrator** | `admin@texwaste.ai` | `admin123` |
+| **Sustainability Manager** | `sustainability@texwaste.ai` | `password123` |
+| **Recycling Operator** | `operator@texwaste.ai` | `password123` |
+| **Textile Manufacturer** | `manufacturer@texwaste.ai` | `password123` |
 
 *Google OAuth2 Single Sign-On (SSO) and Real Email OTP Password Reset are also fully enabled.*
