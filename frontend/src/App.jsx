@@ -3934,7 +3934,7 @@ function App() {
             case 'MANUFACTURER':
               return [
                 { id: 'environmental_impact', title: 'Production Offcut Recovery', desc: 'Cutting room remnants, deadstock volume, and scrap sorting routes.' },
-                { id: 'sustainability', title: 'Raw Material Cost Recovery', desc: 'Calculated raw material expenditure spared ($) and virgin feedstock displacement.' },
+                { id: 'sustainability', title: 'Raw Material Cost Recovery', desc: 'Calculated raw material expenditure spared (₹ INR) and virgin feedstock displacement.' },
                 { id: 'circular_economy', title: 'Closed-Loop Fiber Suitability', desc: 'Pre-consumer textile circularity rating and industrial re-spinning potential.' }
               ];
             case 'Administrator':
