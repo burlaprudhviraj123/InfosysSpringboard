@@ -66,16 +66,12 @@ Where:
 
 ---
 
-## 👥 Role-Based Access Control (RBAC) & Demo Credentials
+## 👥 Role-Based Access Control (RBAC) & Personas
 
-| Role Persona | Target User | Capabilities | Demo Username | Demo Password |
-| :--- | :--- | :--- | :--- | :--- |
-| **Recycling Facility Operator** | Sorting Line Operators | Real-time camera scans, AI classification, sorting bin assignment, personal shift log. | `operator1` | `password123` |
-| **Sustainability Manager** | ESG & Compliance Officers | Facility LCA reports, CO₂/Water offset metrics, circularity radar, environmental audit exports. | `sustainability_mgr` | `password123` |
-| **Textile Manufacturer** | Apparel Brand Sourcing | Production offcut telemetry, scrap value recovery in ₹ INR, circular feedstock procurement. | `manufacturer1` | `password123` |
-| **System Administrator** | Platform Governors | User lifecycle management, role elevation, batch deletion, microservices telemetry. | `admin` | `admin123` |
-
-*Google OAuth2 Single Sign-On (SSO) and Secure Password Reset with SMTP OTP are fully integrated for all accounts.*
+* **Recycling Facility Operator**: Real-time conveyor camera scans, AI deep learning classification, sorting bin directives, and personal shift log.
+* **Sustainability Manager**: Facility LCA reports, CO₂/Water conservation metrics, 5-axis circularity radar, and compliance audit exports.
+* **Textile Manufacturer**: Production cutting table offcut telemetry, scrap value recovery in ₹ INR, and circular feedstock procurement.
+* **System Administrator**: Platform user lifecycle governance, role elevation, batch management, and microservices infrastructure telemetry.
 
 ---
 
@@ -246,3 +242,18 @@ Our **GitHub Actions Workflow** (`.github/workflows/deploy.yml`) guarantees cont
 ## 🛡️ License
 This project was developed for the **Infosys Springboard Internship Program** under the guidance of our project mentor.  
 Licensed under the [MIT License](LICENSE).
+
+---
+
+## 🧪 Live Demo Test Credentials
+
+If anyone wants to test any role, live conveyor camera intake, or pre-configured dashboards on the platform, use the following credentials:
+
+| Role | Username / Email | Password |
+| :--- | :--- | :--- |
+| **Administrator** | `admin@texwaste.ai` *(or `admin`)* | `admin123` |
+| **Sustainability Manager** | `sustainability@texwaste.ai` *(or `sustainability_mgr`)* | `password123` |
+| **Recycling Operator** | `operator@texwaste.ai` *(or `operator1`)* | `password123` |
+| **Textile Manufacturer** | `manufacturer@texwaste.ai` *(or `manufacturer1`)* | `password123` |
+
+*Google OAuth2 Single Sign-On (SSO) and Real Email OTP Password Reset are also fully enabled.*
