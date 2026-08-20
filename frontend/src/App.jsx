@@ -662,6 +662,7 @@ function App() {
 
   // Inventory & Analysis State
   const [batches, setBatches] = useState([]);
+  const [operatorScope, setOperatorScope] = useState('personal'); // 'personal' | 'global'
   const [imageFile, setImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -1961,6 +1962,28 @@ function App() {
   const chartFabricData = Object.keys(fabricCounts).length > 0 ? fabricCounts : { Cotton: 45, Denim: 30, Polyester: 25, Wool: 15 };
   const chartCategoryData = Object.keys(categoryCounts).length > 0 ? categoryCounts : { Recyclable: 8, Upcyclable: 5, Reusable: 3, Repairable: 2 };
 
+  // Personal User Batches vs Plant-Wide Facility Batches
+  const userBatches = user ? batches.filter(b => b.operator_id === user.id) : [];
+  const userBatchesWeight = userBatches.reduce((acc, b) => acc + (b.quantity || 0), 0);
+  const userBatchesAvgCircularity = userBatches.length > 0 
+    ? (userBatches.reduce((acc, b) => acc + (b.circularity_score || 0), 0) / userBatches.length).toFixed(1)
+    : '0.0';
+  const userBatchesCo2 = (userBatchesWeight * 3.6).toFixed(1);
+
+  const userFabricCounts = userBatches.reduce((acc, b) => {
+    acc[b.fabric_type] = (acc[b.fabric_type] || 0) + b.quantity;
+    return acc;
+  }, {});
+
+  const userCategoryCounts = userBatches.reduce((acc, b) => {
+    const cat = b.waste_category || 'Recyclable';
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {});
+
+  const userChartFabricData = Object.keys(userFabricCounts).length > 0 ? userFabricCounts : { [userBatches[0]?.fabric_type || 'Cotton']: userBatchesWeight || 10 };
+  const userChartCategoryData = Object.keys(userCategoryCounts).length > 0 ? userCategoryCounts : { [userBatches[0]?.waste_category || 'Recyclable']: userBatches.length || 1 };
+
   // Tiered CO2 factors per material
   const CO2_LCA_FACTORS = { 'Cotton': 3.6, 'Denim': 3.8, 'Wool': 4.8, 'Silk': 4.2, 'Linen': 3.4, 'Polyester': 2.1, 'Nylon': 4.5, 'Rayon': 2.4, 'Acrylic': 2.3, 'Mixed Fabrics': 1.8 };
   const co2ByFabricData = Object.entries(chartFabricData).reduce((acc, [mat, wt]) => {
@@ -2898,63 +2921,227 @@ function App() {
           {/* Role-Based Dashboard 4: Recycling Facility Operator Dashboard */}
           {user.role === 'Recycling Facility Operator' && (
             <div>
-              <div className="stats-banner">
-                <div className="stat-card glass">
-                  <div className="stat-label">Total Batches Sorted</div>
-                  <div className="stat-value">{batches.length} Batches</div>
-                </div>
-                <div className="stat-card glass blue">
-                  <div className="stat-label">Total Weight Managed (kg)</div>
-                  <div className="stat-value">{totalWeight.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{(totalWeight / 1000).toFixed(2)} metric tons diverted</div>
-                </div>
-                <div className="stat-card glass purple">
-                  <div className="stat-label">Avg Circularity Rating (%)</div>
-                  <div className="stat-value">{avgCircularity}%</div>
-                </div>
-                <div className="stat-card glass">
-                  <div className="stat-label">CO₂ Offset Estimate (kg)</div>
-                  <div className="stat-value">{Number(co2Saved).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</div>
-                </div>
-              </div>
-
-              {/* Multi-Chart Analytics Grid for Operator */}
-              <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
-                <div className="batch-card glass">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                    <h3 className="card-title" style={{ margin: 0 }}>Conveyor Intake Mass by Fabric (kg)</h3>
-                    <span className="tag tag-new">Bar Chart</span>
+              {/* Personal Shift Activity vs Plant-Wide Facility Scope Switcher */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', background: 'rgba(255, 255, 255, 0.03)', padding: '0.9rem 1.4rem', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: '#ffffff', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>Operator Console:</span>
+                    <span style={{ color: 'var(--color-primary)' }}>{user.username}</span>
                   </div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
-                    Physical sorting mass categorized across incoming textile consignments.
-                  </p>
-                  <BarChart data={chartFabricData} unit="kg" color="#54D69B" />
-                </div>
-
-                <div className="batch-card glass">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                    <h3 className="card-title" style={{ margin: 0 }}>Cumulative Sorting Throughput (kg)</h3>
-                    <span className="tag tag-score high">Area Trend</span>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                    {operatorScope === 'personal' ? 'Displaying personal shift intake & sorting telemetry' : 'Displaying platform-wide aggregate facility metrics'}
                   </div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
-                    Real-time operational sorting throughput telemetry across operational shifts.
-                  </p>
-                  <LineChart dataPoints={throughputTrendValues} labels={throughputTrendLabels} unit="kg" title="Sorted Weight" color="#00BCFF" />
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.4)', padding: '0.3rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <button 
+                    onClick={() => setOperatorScope('personal')}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: operatorScope === 'personal' ? 'linear-gradient(135deg, rgba(84, 214, 155, 0.3), rgba(0, 188, 255, 0.3))' : 'transparent',
+                      color: operatorScope === 'personal' ? '#54D69B' : 'var(--text-muted)',
+                      border: operatorScope === 'personal' ? '1px solid rgba(84, 214, 155, 0.5)' : '1px solid transparent',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    👤 My Shift Activity ({userBatches.length})
+                  </button>
+                  <button 
+                    onClick={() => setOperatorScope('global')}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: operatorScope === 'global' ? 'linear-gradient(135deg, rgba(84, 214, 155, 0.3), rgba(0, 188, 255, 0.3))' : 'transparent',
+                      color: operatorScope === 'global' ? '#54D69B' : 'var(--text-muted)',
+                      border: operatorScope === 'global' ? '1px solid rgba(84, 214, 155, 0.5)' : '1px solid transparent',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    🌐 Plant-Wide Overview ({batches.length})
+                  </button>
                 </div>
               </div>
 
-              {/* Interactive Pie Charts Grid */}
-              <div className="dashboard-grid" style={{ marginBottom: '2rem' }}>
-                <div className="batch-card glass">
-                  <h3 className="card-title">Material Composition Breakdown (kg)</h3>
-                  <PieChart data={chartFabricData} unit="kg" />
-                </div>
+              {/* View 1: Personal Operator Shift Activity */}
+              {operatorScope === 'personal' ? (
+                <div>
+                  {userBatches.length > 0 ? (
+                    <div>
+                      <div className="stats-banner">
+                        <div className="stat-card glass">
+                          <div className="stat-label">My Processed Batches</div>
+                          <div className="stat-value">{userBatches.length} Batches</div>
+                        </div>
+                        <div className="stat-card glass blue">
+                          <div className="stat-label">My Handled Mass (kg)</div>
+                          <div className="stat-value">{userBatchesWeight.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{(userBatchesWeight / 1000).toFixed(2)} metric tons sorted by you</div>
+                        </div>
+                        <div className="stat-card glass purple">
+                          <div className="stat-label">My Avg Circularity Rating</div>
+                          <div className="stat-value">{userBatchesAvgCircularity}%</div>
+                        </div>
+                        <div className="stat-card glass">
+                          <div className="stat-label">My CO₂ Diverted Spared (kg)</div>
+                          <div className="stat-value">{Number(userBatchesCo2).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</div>
+                        </div>
+                      </div>
 
-                <div className="batch-card glass">
-                  <h3 className="card-title">Waste Category Share (Batches)</h3>
-                  <PieChart data={chartCategoryData} unit="batches" />
+                      {/* Multi-Chart Analytics Grid for Personal Activity */}
+                      <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
+                        <div className="batch-card glass">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                            <h3 className="card-title" style={{ margin: 0 }}>My Intake Mass by Fabric (kg)</h3>
+                            <span className="tag tag-new">Personal Telemetry</span>
+                          </div>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
+                            Textile materials scanned and registered by your operator account.
+                          </p>
+                          <BarChart data={userChartFabricData} unit="kg" color="#54D69B" />
+                        </div>
+
+                        <div className="batch-card glass">
+                          <h3 className="card-title">My Material Composition Breakdown</h3>
+                          <PieChart data={userChartFabricData} unit="kg" />
+                        </div>
+                      </div>
+
+                      {/* Recent Batches Table by this Operator */}
+                      <div className="batch-card glass" style={{ marginBottom: '2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                          <h3 className="card-title" style={{ margin: 0 }}>My Recent Shift Registrations</h3>
+                          <button onClick={() => changeView('analysis')} className="btn btn-primary" style={{ width: 'auto', padding: '0.5rem 1.2rem', fontSize: '0.85rem' }}>
+                            + Scan New Fabric Sample
+                          </button>
+                        </div>
+                        <div className="table-wrapper">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Batch ID</th>
+                                <th>Fabric & Image</th>
+                                <th>Quantity (kg)</th>
+                                <th>Waste Category</th>
+                                <th>Circularity Rating</th>
+                                <th>Intake Date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {userBatches.slice(0, 10).map((b) => (
+                                <tr key={b.id}>
+                                  <td><strong># {b.id}</strong></td>
+                                  <td>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                      <FabricThumbnail path={b.image_path} fabricType={b.fabric_type} size={40} borderRadius={6} />
+                                      <div>
+                                        <div style={{ fontWeight: 600 }}>{b.fabric_type} <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>({b.condition})</span></div>
+                                        <small style={{ color: 'var(--text-muted)' }}>{b.color} • {b.source}</small>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td><strong>{b.quantity} kg</strong></td>
+                                  <td><span className="tag tag-new">{b.waste_category || 'Recyclable'}</span></td>
+                                  <td><span className="tag tag-score high">{b.circularity_score || 85}%</span></td>
+                                  <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{new Date(b.collection_date).toLocaleDateString()}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Zero-State Operator Shift Console */
+                    <div className="batch-card glass" style={{ textAlign: 'center', padding: '3.5rem 2rem', marginBottom: '2rem' }}>
+                      <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🧵</div>
+                      <h3 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.6rem' }}>
+                        Active Shift Console: Ready for Intake
+                      </h3>
+                      <p style={{ color: 'var(--text-secondary)', maxWidth: '540px', margin: '0 auto 1.8rem auto', fontSize: '0.95rem', lineHeight: 1.6 }}>
+                        Hello <strong style={{ color: '#ffffff' }}>{user.username}</strong>! You have not logged any textile waste batches in your personal shift session yet. Upload a fabric photograph in the AI inspection terminal to run deep learning classification and populate your personal telemetry.
+                      </p>
+                      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button onClick={() => changeView('analysis')} className="btn btn-primary" style={{ width: 'auto', padding: '0.8rem 1.8rem', fontSize: '0.95rem' }}>
+                          📸 Scan & Register First Batch
+                        </button>
+                        <button onClick={() => setOperatorScope('global')} className="btn btn-secondary" style={{ width: 'auto', padding: '0.8rem 1.6rem', fontSize: '0.95rem' }}>
+                          🌐 View Plant-Wide Facility Metrics ({batches.length})
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
+              ) : (
+                /* View 2: Plant-Wide Facility Overview */
+                <div>
+                  <div className="stats-banner">
+                    <div className="stat-card glass">
+                      <div className="stat-label">Total Batches Sorted (Plant)</div>
+                      <div className="stat-value">{batches.length} Batches</div>
+                    </div>
+                    <div className="stat-card glass blue">
+                      <div className="stat-label">Total Weight Managed (kg)</div>
+                      <div className="stat-value">{totalWeight.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{(totalWeight / 1000).toFixed(2)} metric tons diverted</div>
+                    </div>
+                    <div className="stat-card glass purple">
+                      <div className="stat-label">Plant Avg Circularity Rating</div>
+                      <div className="stat-value">{avgCircularity}%</div>
+                    </div>
+                    <div className="stat-card glass">
+                      <div className="stat-label">Total CO₂ Offset Estimate (kg)</div>
+                      <div className="stat-value">{Number(co2Saved).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</div>
+                    </div>
+                  </div>
+
+                  {/* Multi-Chart Analytics Grid for Plant */}
+                  <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
+                    <div className="batch-card glass">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                        <h3 className="card-title" style={{ margin: 0 }}>Conveyor Intake Mass by Fabric (kg)</h3>
+                        <span className="tag tag-new">Facility Wide</span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
+                        Physical sorting mass categorized across incoming textile consignments.
+                      </p>
+                      <BarChart data={chartFabricData} unit="kg" color="#54D69B" />
+                    </div>
+
+                    <div className="batch-card glass">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                        <h3 className="card-title" style={{ margin: 0 }}>Cumulative Sorting Throughput (kg)</h3>
+                        <span className="tag tag-score high">Area Trend</span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.8rem' }}>
+                        Real-time operational sorting throughput telemetry across operational shifts.
+                      </p>
+                      <LineChart dataPoints={throughputTrendValues} labels={throughputTrendLabels} unit="kg" title="Sorted Weight" color="#00BCFF" />
+                    </div>
+                  </div>
+
+                  {/* Interactive Pie Charts Grid */}
+                  <div className="dashboard-grid" style={{ marginBottom: '2rem' }}>
+                    <div className="batch-card glass">
+                      <h3 className="card-title">Material Composition Breakdown (kg)</h3>
+                      <PieChart data={chartFabricData} unit="kg" />
+                    </div>
+
+                    <div className="batch-card glass">
+                      <h3 className="card-title">Waste Category Share (Batches)</h3>
+                      <PieChart data={chartCategoryData} unit="batches" />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -3253,6 +3440,104 @@ function App() {
                     </button>
                   </div>
                 </form>
+              )}
+            </div>
+          </div>
+
+          {/* User-Specific Inspection Telemetry & Activity Dashboard */}
+          <div style={{ marginTop: '2rem' }}>
+            <div className="dashboard-title-bar" style={{ marginBottom: '1.2rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span>👤 My Shift Inspection Telemetry & Logged Batches</span>
+                  <span className="tag tag-new" style={{ fontSize: '0.75rem' }}>{user.username}</span>
+                </h3>
+                <p className="dashboard-subtitle-text" style={{ fontSize: '0.85rem' }}>
+                  Real-time activity log of textile waste consignments analyzed and registered by your account.
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="stats-banner" style={{ marginBottom: '1.5rem' }}>
+              <div className="stat-card glass">
+                <div className="stat-label">My Scanned Batches</div>
+                <div className="stat-value">{userBatches.length}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Recorded by {user.username}</div>
+              </div>
+              <div className="stat-card glass blue">
+                <div className="stat-label">My Processed Mass (kg)</div>
+                <div className="stat-value">{userBatchesWeight.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{(userBatchesWeight / 1000).toFixed(2)} metric tons</div>
+              </div>
+              <div className="stat-card glass purple">
+                <div className="stat-label">My Avg Circularity</div>
+                <div className="stat-value">{userBatchesAvgCircularity}%</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Mean 5-factor rating</div>
+              </div>
+              <div className="stat-card glass">
+                <div className="stat-label">My CO₂ Diverted (kg)</div>
+                <div className="stat-value">{Number(userBatchesCo2).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>3.6 kg CO₂/kg factor</div>
+              </div>
+            </div>
+
+            {/* Recent Batches Table Log */}
+            <div className="batch-card glass" style={{ marginBottom: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#ffffff' }}>
+                  Batches Registered by You ({userBatches.length})
+                </h4>
+                {userBatches.length > 0 && (
+                  <button onClick={() => changeView('inventory')} className="btn btn-secondary" style={{ width: 'auto', padding: '0.4rem 1rem', fontSize: '0.8rem' }}>
+                    View in Full Inventory ➜
+                  </button>
+                )}
+              </div>
+
+              {userBatches.length > 0 ? (
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Batch ID</th>
+                        <th>Fabric & Image</th>
+                        <th>Source</th>
+                        <th>Quantity (kg)</th>
+                        <th>Waste Category</th>
+                        <th>Circularity</th>
+                        <th>Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userBatches.slice(0, 10).map((b) => (
+                        <tr key={b.id}>
+                          <td><strong># {b.id}</strong></td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <FabricThumbnail path={b.image_path} fabricType={b.fabric_type} size={38} borderRadius={6} />
+                              <div>
+                                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{b.fabric_type} <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>({b.condition})</span></div>
+                                <small style={{ color: 'var(--text-muted)' }}>{b.color}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '0.85rem' }}>{b.source}</td>
+                          <td><strong>{b.quantity} kg</strong></td>
+                          <td><span className="tag tag-new">{b.waste_category || 'Recyclable'}</span></td>
+                          <td><span className="tag tag-score high">{b.circularity_score || 85}%</span></td>
+                          <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(b.collection_date).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
+                  <div style={{ fontWeight: 600, color: '#ffffff', marginBottom: '0.2rem' }}>No Batches Committed by Your Account Yet</div>
+                  <div style={{ fontSize: '0.85rem' }}>Select a textile photo above, click "Run Material Analysis", and commit the batch to see your live audit log appear here.</div>
+                </div>
               )}
             </div>
           </div>
