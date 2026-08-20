@@ -325,7 +325,7 @@ TexWaste AI Team"""
 <html>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b1120; color: #f8fafc; padding: 30px; margin: 0;">
   <div style="max-width: 500px; margin: auto; background-color: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-    <div style="font-size: 28px; text-align: center; margin-bottom: 12px;">🌱</div>
+    <div style="font-size: 28px; text-align: center; margin-bottom: 12px;">🧵</div>
     <h2 style="color: #38bdf8; text-align: center; margin: 0 0 16px 0; font-size: 22px;">Password Reset Verification</h2>
     <p style="color: #94a3b8; font-size: 15px; line-height: 1.5; text-align: center;">Use the 6-digit verification code below to reset your TexWaste AI account password:</p>
     <div style="background-color: #0f172a; border: 1px dashed #38bdf8; border-radius: 12px; padding: 18px; text-align: center; margin: 24px 0;">

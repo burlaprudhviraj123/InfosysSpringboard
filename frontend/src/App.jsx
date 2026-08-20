@@ -74,6 +74,31 @@ function FabricThumbnail({ path, fabricType, size = 45, borderRadius = 6 }) {
   );
 }
 
+// Sleek High-Tech Textile Fiber & AI Core Brand Logo
+function BrandLogo({ size = 36 }) {
+  return (
+    <div style={{
+      width: `${size}px`,
+      height: `${size}px`,
+      minWidth: `${size}px`,
+      borderRadius: '10px',
+      background: 'linear-gradient(135deg, rgba(84, 214, 155, 0.22) 0%, rgba(0, 188, 255, 0.22) 100%)',
+      border: '1px solid rgba(84, 214, 155, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 0 16px rgba(84, 214, 155, 0.3)'
+    }}>
+      <svg width={Math.round(size * 0.62)} height={Math.round(size * 0.62)} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 8L12 3L20 8L12 13L4 8Z" stroke="#54D69B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M4 16L12 21L20 16" stroke="#00BCFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M4 12L12 17L20 12" stroke="#54D69B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="12" cy="10" r="1.6" fill="#00BCFF" />
+      </svg>
+    </div>
+  );
+}
+
 // Custom Dynamic SVG Pie / Donut Chart Component
 function PieChart({ data, unit = "kg" }) {
   const total = Object.values(data).reduce((a, b) => a + b, 0) || 1;
@@ -1323,7 +1348,7 @@ function App() {
       <div id="pdf-report-content" style="max-width: 800px; margin: 0 auto; background: #ffffff; padding: 25px; color: #0f172a;">
         <div style="border-bottom: 2px solid #54D69B; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
           <div>
-            <div style="font-size: 22px; font-weight: bold; color: #0f172a;">🌱 TexWaste.ai • Material Diagnostic Report</div>
+            <div style="font-size: 22px; font-weight: bold; color: #0f172a;">🧵 TexWaste.ai • Material Diagnostic Report</div>
             <div style="font-size: 13px; color: #475569; margin-top: 4px;">Textile Material Diagnostic & Assessment Report</div>
           </div>
           <span style="background: #e6f9f0; color: #0d9488; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; border: 1px solid #99f6e4;">
@@ -2056,20 +2081,7 @@ function App() {
       <header className="navbar glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.5rem', position: 'sticky', top: '0.75rem', zIndex: 1000 }}>
         {/* Left: TexWaste.AI Brand Logo */}
         <div className="logo" onClick={() => changeView('home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <div style={{
-            width: '34px',
-            height: '34px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, rgba(84, 214, 155, 0.25) 0%, rgba(0, 188, 255, 0.25) 100%)',
-            border: '1px solid rgba(84, 214, 155, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.1rem',
-            boxShadow: '0 0 12px rgba(84, 214, 155, 0.3)'
-          }}>
-            🌱
-          </div>
+          <BrandLogo size={34} />
           <span style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '-0.02em', color: '#ffffff' }}>
             TexWaste<span style={{ color: 'var(--color-primary)' }}>.ai</span>
           </span>
