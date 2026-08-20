@@ -741,6 +741,23 @@ function App() {
     window.addEventListener('resize', updatePillPosition);
     return () => window.removeEventListener('resize', updatePillPosition);
   }, [currentView, user]);
+
+  // Dynamically update browser tab title
+  useEffect(() => {
+    const viewTitles = {
+      home: 'TexWaste.ai — AI Textile Waste Intelligence',
+      login: 'TexWaste.ai — Platform Authentication',
+      dashboard: 'TexWaste.ai — Operational Dashboard',
+      analysis: 'TexWaste.ai — AI Material Diagnostics',
+      inventory: 'TexWaste.ai — Waste Inventory Management',
+      materials: 'TexWaste.ai — Textile Material Taxonomy',
+      sustainability: 'TexWaste.ai — Circularity & LCA Assessment',
+      reports: 'TexWaste.ai — Environmental Impact Dossiers',
+      production_waste: 'TexWaste.ai — Manufacturer Scrap Telemetry',
+      admin_users: 'TexWaste.ai — System Governance & Users'
+    };
+    document.title = viewTitles[currentView] || 'TexWaste.ai — Textile Waste Intelligence Platform';
+  }, [currentView]);
   
   // Batch details form state
   const [source, setSource] = useState('Production Offcuts');
