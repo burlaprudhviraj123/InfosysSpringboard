@@ -662,7 +662,7 @@ function App() {
 
   // Inventory & Analysis State
   const [batches, setBatches] = useState([]);
-  const [operatorScope, setOperatorScope] = useState('personal'); // 'personal' | 'global'
+  const [operatorScope, setOperatorScope] = useState('global'); // 'global' (default) | 'personal'
   const [imageFile, setImageFile] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -2935,6 +2935,23 @@ function App() {
 
                 <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.4)', padding: '0.3rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <button 
+                    onClick={() => setOperatorScope('global')}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      borderRadius: '8px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: operatorScope === 'global' ? 'linear-gradient(135deg, rgba(84, 214, 155, 0.3), rgba(0, 188, 255, 0.3))' : 'transparent',
+                      color: operatorScope === 'global' ? '#54D69B' : 'var(--text-muted)',
+                      border: operatorScope === 'global' ? '1px solid rgba(84, 214, 155, 0.5)' : '1px solid transparent',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    🌐 Plant-Wide Facility ({batches.length})
+                  </button>
+                  <button 
                     onClick={() => setOperatorScope('personal')}
                     style={{
                       padding: '0.5rem 1rem',
@@ -2950,23 +2967,6 @@ function App() {
                     }}
                   >
                     👤 My Shift Activity ({userBatches.length})
-                  </button>
-                  <button 
-                    onClick={() => setOperatorScope('global')}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      fontSize: '0.85rem',
-                      fontWeight: 600,
-                      borderRadius: '8px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: operatorScope === 'global' ? 'linear-gradient(135deg, rgba(84, 214, 155, 0.3), rgba(0, 188, 255, 0.3))' : 'transparent',
-                      color: operatorScope === 'global' ? '#54D69B' : 'var(--text-muted)',
-                      border: operatorScope === 'global' ? '1px solid rgba(84, 214, 155, 0.5)' : '1px solid transparent',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    🌐 Plant-Wide Overview ({batches.length})
                   </button>
                 </div>
               </div>
