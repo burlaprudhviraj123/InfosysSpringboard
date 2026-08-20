@@ -14,7 +14,7 @@
 ---
 
 ## 📌 Live Cloud Deployment
-* **Live Web Application**: [http://texwaste-ai.centralindia.cloudapp.azure.com](http://texwaste-ai.centralindia.cloudapp.azure.com) *(or `http://20.219.16.80`)*
+* **Live Web Application**: [http://texwaste-ai.centralindia.cloudapp.azure.com](http://texwaste-ai.centralindia.cloudapp.azure.com)
 
 ---
 
