@@ -15,8 +15,6 @@
 
 ## 📌 Live Cloud Deployment
 * **Live Web Application**: [http://texwaste-ai.centralindia.cloudapp.azure.com](http://texwaste-ai.centralindia.cloudapp.azure.com) *(or `http://20.219.16.80`)*
-* **Interactive Swagger API Docs**: [http://texwaste-ai.centralindia.cloudapp.azure.com:8000/docs](http://texwaste-ai.centralindia.cloudapp.azure.com:8000/docs)
-* **API Healthcheck**: [http://texwaste-ai.centralindia.cloudapp.azure.com:8000/health](http://texwaste-ai.centralindia.cloudapp.azure.com:8000/health)
 
 ---
 
