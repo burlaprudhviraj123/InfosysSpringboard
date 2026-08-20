@@ -57,7 +57,10 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
       - "${FRONTEND_PORT:-5173}:80"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - backend
     networks:
