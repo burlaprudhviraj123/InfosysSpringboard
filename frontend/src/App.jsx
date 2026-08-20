@@ -2,6 +2,19 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || (typeof window !== 'undefined' && window.location.port === '5173' && window.location.hostname === 'localhost' ? "http://localhost:8000/api" : "/api");
 
+// Universal helper to resolve image URLs across local Vite dev and deployed Azure VM reverse proxy
+const getImageUrl = (path) => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path;
+  }
+  const cleanPath = path.startsWith('/') ? path : '/' + path;
+  if (typeof window !== 'undefined' && window.location.port === '5173' && window.location.hostname === 'localhost') {
+    return `http://localhost:8000${cleanPath}`;
+  }
+  return cleanPath;
+};
+
 // Custom Dynamic SVG Pie / Donut Chart Component
 function PieChart({ data, unit = "kg" }) {
   const total = Object.values(data).reduce((a, b) => a + b, 0) || 1;
@@ -566,6 +579,7 @@ function App() {
   // Inventory & Analysis State
   const [batches, setBatches] = useState([]);
   const [imageFile, setImageFile] = useState(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzedResult, setAnalyzedResult] = useState(null);
   
@@ -1767,6 +1781,7 @@ function App() {
         setBatchSuccess(`Successfully added ${data.fabric_type} batch to inventory! (Circularity: ${data.circularity_score}%)`);
         setAnalyzedResult(null);
         setImageFile(null);
+        setImagePreviewUrl(null);
         setQuantity('');
         fetchBatches();
         fetchSustainabilityMetrics();
@@ -1783,6 +1798,7 @@ function App() {
   const handleResetAnalysis = () => {
     setAnalyzedResult(null);
     setImageFile(null);
+    setImagePreviewUrl(null);
     setBatchError('');
     setBatchSuccess('');
   };
@@ -2898,10 +2914,35 @@ function App() {
                       accept="image/*"
                       className="form-control" 
                       style={{ paddingLeft: '1rem', height: '48px' }}
-                      onChange={(e) => setImageFile(e.target.files[0])}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        setImageFile(file || null);
+                        if (file) {
+                          setImagePreviewUrl(URL.createObjectURL(file));
+                        } else {
+                          setImagePreviewUrl(null);
+                        }
+                      }}
                       required
                     />
                   </div>
+
+                  {imagePreviewUrl && (
+                    <div style={{ marginTop: '1.2rem', padding: '1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <img 
+                        src={imagePreviewUrl} 
+                        alt="Selected File Preview" 
+                        style={{ width: '80px', height: '80px', borderRadius: '10px', objectFit: 'cover', border: '2px solid var(--color-primary)', boxShadow: '0 4px 16px rgba(84, 214, 155, 0.2)' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.95rem' }}>{imageFile?.name}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                          Ready for visual deep learning analysis ({(imageFile?.size / 1024).toFixed(1)} KB)
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <button type="submit" className="btn btn-primary" style={{ marginTop: '1.2rem', padding: '0.8rem 1.8rem', fontSize: '1rem' }} disabled={isAnalyzing}>
                     {isAnalyzing ? "Running Visual Analysis & Classification Models..." : "Run Material Analysis"}
                   </button>
@@ -2911,7 +2952,7 @@ function App() {
                   <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '1.8rem', borderRadius: '16px', marginBottom: '1.8rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                     <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1.2rem' }}>
                       <img 
-                        src={`http://localhost:8000${analyzedResult.image_path}`} 
+                        src={getImageUrl(analyzedResult.image_path) || imagePreviewUrl} 
                         alt="Analyzed Fabric Preview" 
                         style={{ width: '110px', height: '110px', borderRadius: '14px', objectFit: 'cover', border: '2px solid var(--color-primary)', boxShadow: '0 8px 24px rgba(84, 214, 155, 0.2)' }}
                       />
@@ -3198,7 +3239,7 @@ function App() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                             {b.image_path && (
                               <img 
-                                src={`http://localhost:8000${b.image_path}`} 
+                                src={getImageUrl(b.image_path)} 
                                 alt="fabric thumbnail" 
                                 style={{ width: '45px', height: '45px', borderRadius: '6px', objectFit: 'cover' }} 
                               />
@@ -3512,7 +3553,7 @@ function App() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                   {b.image_path ? (
                                     <img 
-                                      src={`http://localhost:8000${b.image_path}`} 
+                                      src={getImageUrl(b.image_path)} 
                                       alt="fabric thumbnail" 
                                       style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover' }} 
                                     />
