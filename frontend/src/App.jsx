@@ -2996,14 +2996,14 @@ function App() {
                       <div>
                         <div style={{ fontWeight: 600, color: '#fff', fontSize: '0.95rem' }}>{imageFile?.name}</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                          Ready for visual deep learning analysis ({(imageFile?.size / 1024).toFixed(1)} KB)
+                          Image selected • {(imageFile?.size / 1024).toFixed(1)} KB
                         </div>
                       </div>
                     </div>
                   )}
 
                   <button type="submit" className="btn btn-primary" style={{ marginTop: '1.2rem', padding: '0.8rem 1.8rem', fontSize: '1rem' }} disabled={isAnalyzing}>
-                    {isAnalyzing ? "Running Visual Analysis & Classification Models..." : "Run Material Analysis"}
+                    {isAnalyzing ? "Analyzing Fabric Sample..." : "Run Material Analysis"}
                   </button>
                 </form>
               ) : (
